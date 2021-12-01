@@ -1,5 +1,13 @@
 # https://codeburst.io/building-beautiful-command-line-interfaces-with-python-26c7e1bb54df
 import click
+import os
+import yaml
+
+
+def get_yaml():
+    dir_path = os.getcwd()
+    with open(f"{dir_path}/balance-projector.yml", "r") as stream:
+        return yaml.safe_load(stream)
 
 
 @click.group()
@@ -30,7 +38,8 @@ def cli():
     help='End date.'
 )
 def project(account_id, start_date, end_date):
-    print('hello')
+    spec = get_yaml()
+    print(spec)
 
 
 if __name__ == '__main__':
