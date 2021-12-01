@@ -13,7 +13,8 @@ setup(
     install_requires=[
         'attrs',
         'python-dateutil',
-        'PyYAML'
+        'PyYAML',
+        'click'
     ],
     extras_require={
         'dev': [
@@ -21,5 +22,9 @@ setup(
             'parameterized',
             'coverage'
         ]
-    }
+    },
+    entry_points='''
+        [console_scripts]
+        projector=balance_projector.__main__:cli
+    ''',
 )

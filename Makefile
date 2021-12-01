@@ -13,7 +13,7 @@ help:
 
 init: ## Create venv and install dependencies
 	@python3 -m venv venv
-	@source venv/bin/activate; pip3 install --editable . .[dev];
+	@source venv/bin/activate; pip3 install --editable .[dev]
 
 update: ## Update the pip package
 	@source venv/bin/activate; pip3 install --upgrade .
