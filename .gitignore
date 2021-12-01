@@ -2,6 +2,9 @@
 .idea
 *.code-workspace
 
+# Renamed dist files
+balance-projector.yml
+
 # Environment
 .env
 

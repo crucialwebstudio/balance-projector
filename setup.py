@@ -14,7 +14,8 @@ setup(
         'attrs',
         'python-dateutil',
         'PyYAML',
-        'click'
+        'click',
+        'tabulate'
     ],
     extras_require={
         'dev': [
