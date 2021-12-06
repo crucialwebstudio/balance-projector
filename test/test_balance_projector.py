@@ -245,7 +245,7 @@ class TestProjector(unittest.TestCase):
         spec = FixtureHelper.get_yaml('balance_projector.yml')
         projector = Projector.from_spec(spec)
         df = projector.get_transactions_data_frame()
-        DebugHelper.pprint(df)
+        # DebugHelper.pprint(df)
 
         """
         Spot-check some rows
