@@ -1,6 +1,7 @@
 # https://codeburst.io/building-beautiful-command-line-interfaces-with-python-26c7e1bb54df
 import os
 from datetime import date
+from dateutil.relativedelta import relativedelta
 import click
 import yaml
 from tabulate import tabulate
@@ -26,8 +27,10 @@ def cli():
     short_help='Project account balances into the future.'
 )
 @click.option('--account-id', type=click.INT, required=True, help='Account Id to project.')
-@click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True, default=str(date.today()), help='Start date.')
-@click.option('--end-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True, help='End date.')
+@click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
+              default=str(date.today()), help='Start date.')
+@click.option('--end-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
+              default=str(date.today() + relativedelta(years=1)), help='End date.')
 def project(account_id, start_date, end_date):
     start_str = start_date.strftime(DATE_FORMAT)
     end_str = end_date.strftime(DATE_FORMAT)
