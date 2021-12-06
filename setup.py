@@ -15,7 +15,11 @@ setup(
         'python-dateutil',
         'PyYAML',
         'click',
-        'tabulate'
+        'tabulate',
+        'dash',
+        'plotly',
+        'pandas',
+        'numpy'
     ],
     extras_require={
         'dev': [

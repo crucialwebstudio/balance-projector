@@ -30,19 +30,13 @@ def cli():
 def project(account_id, starting_balance, start_date, end_date):
     spec = get_yaml()
     projector = Projector.from_spec(spec)
-    balances = projector.project(account_id, starting_balance,
-                                 start_date.strftime(DATE_FORMAT),
-                                 end_date.strftime(DATE_FORMAT))
-    headers = ['Date', 'Name', 'Amount', 'Balance']
-    table_data = [
-        [
-            b.transaction.date.strftime(DATE_FORMAT),
-            b.transaction.name,
-            b.transaction.amount,
-            b.balance
-        ] for b in balances
-    ]
-    click.echo(tabulate(table_data, headers=headers))
+    df = projector.filter(account_id,
+                          start_date.strftime(DATE_FORMAT),
+                          end_date.strftime(DATE_FORMAT)
+                          )
+    df = projector.apply_running_balance(df, starting_balance)
+    headers = ['Account ID', 'Date', 'Amount', 'Name', 'Balance']
+    click.echo(tabulate(df.to_numpy(), headers=headers))
 
 
 if __name__ == '__main__':

@@ -1,7 +1,10 @@
+import attr
+import pandas as pd
 from datetime import datetime
 import dateutil.rrule as dr
 import dateutil.parser as dp
-import attr
+
+pd.options.mode.chained_assignment = None    # no warning message and no exception is raised
 
 frequency_map = {
     'daily':   dr.DAILY,
@@ -141,19 +144,8 @@ class ScheduledTransaction:
 
 
 @attr.define(kw_only=True)
-class RunningBalance:
-    transaction: Transaction
-    balance: float
-
-
-@attr.define(kw_only=True)
 class Projector:
     scheduled_transactions = attr.ib(factory=list)
-    transaction_map = attr.ib()
-
-    @transaction_map.default
-    def default_transaction_map(self):
-        return {}
 
     @classmethod
     def from_spec(cls, spec):
@@ -166,47 +158,27 @@ class Projector:
                                       type=param['type'], date_spec=date_spec, transfer=transfer)
 
             scheduled_transactions.append(st)
-
         return cls(scheduled_transactions=scheduled_transactions)
 
-    def get_transaction_map(self):
-        if len(self.transaction_map) > 0:
-            return self.transaction_map
-
+    def get_transactions(self):
+        transactions = []
         for st in self.scheduled_transactions:
-            self.group_transactions(st.generate_transactions())
+            transactions.extend(st.generate_transactions())
+        return transactions
 
-        return self.transaction_map
+    def get_transactions_data_frame(self):
+        df = pd.DataFrame.from_records(list(map(attr.asdict, self.get_transactions())))
+        df = df.sort_values(by=['date', 'name'],
+                            ascending=True,
+                            ignore_index=True)
+        return df
 
-    def group_transactions(self, transactions):
-        for trans in transactions:
-            if self.transaction_map.get(trans.account_id, None) is None:
-                self.transaction_map[trans.account_id] = [
-                    trans
-                ]
-            else:
-                self.transaction_map[trans.account_id].append(trans)
-
-    def project(self, account_id, starting_balance, start_date, end_date):
-        # initialize list of balances to return
-        balances = []
-
-        # initialize current balance
-        current_balance = starting_balance
-
+    def filter(self, account_id, start_date, end_date):
+        df = self.get_transactions_data_frame()
         start = dp.parse(start_date)
         end = dp.parse(end_date)
 
-        # get transactions for this account
-        transactions = self.get_transaction_map().get(account_id, [])
-
-        # sort transactions by date
-        transactions.sort(key=lambda x: x.date)
-
-        for t in transactions:
-            if start <= t.date <= end:
-                # apply transaction to current balance
-                current_balance = current_balance + t.amount
-                balances.append(RunningBalance(transaction=t, balance=current_balance))
-
-        return balances
+        # filter transactions
+        mask = (df['account_id'] == account_id) & ((df['date'] >= start) & (df['date'] <= end))
+        filtered = df[mask]
+        return filtered

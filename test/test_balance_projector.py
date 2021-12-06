@@ -1,9 +1,10 @@
+import datetime
 import unittest
 from parameterized import parameterized
 from test.helpers import FixtureHelper, DebugHelper
-import datetime
-from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector, \
-    RunningBalance
+import pandas as pd
+import numpy as np
+from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
 
 
 class TestProjector(unittest.TestCase):
@@ -240,45 +241,66 @@ class TestProjector(unittest.TestCase):
         actual = tr.generate_transactions()
         self.assertEqual(actual, expected)
 
-    def test_projector(self):
+    def test_get_transactions_data_frame(self):
         spec = FixtureHelper.get_yaml('balance_projector.yml')
         projector = Projector.from_spec(spec)
-        actual = projector.project(1, 2000.00, '2021-11-01', '2021-12-31')
-        # DebugHelper.pprint(actual)
+        df = projector.get_transactions_data_frame()
+        DebugHelper.pprint(df)
 
-        expected = [
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 5, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=4500.0),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 5, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=4277.78),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 19, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=6777.78),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 19, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=6555.5599999999995),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 3, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=9055.56),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 3, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=8833.34),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 17, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=11333.34),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 17, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=11111.12),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 31, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=13611.12),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 31, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=13388.900000000001)
-        ]
-        self.assertEqual(actual, expected)
+        """
+        Spot-check some rows
+        """
+        # Feb. transactions for account_id=1
+        mask = (df['account_id'] == 1) & ((df['date'] > '2022-02-01') & (df['date'] < '2022-02-28'))
+        t = df[mask]
+        DebugHelper.pprint(t)
+        np.testing.assert_array_equal(
+            t.to_numpy(),
+            pd.DataFrame(
+                [
+                    {
+                        'account_id': 1, 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 2500.00,
+                        'name':       'Paycheck'
+                    },
+                    {
+                        'account_id': 1, 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -222.22,
+                        'name':       'Roth IRA'
+                    },
+                    {
+                        'account_id': 1, 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 2500.00,
+                        'name':       'Paycheck'
+                    },
+                    {
+                        'account_id': 1, 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -222.22,
+                        'name':       'Roth IRA'
+                    }
+                ]
+            ).to_numpy()
+        )
+
+        # Feb. transactions for account_id=2
+        mask = (df['account_id'] == 2) & ((df['date'] > '2022-02-01') & (df['date'] < '2022-02-28'))
+        t = df[mask]
+        DebugHelper.pprint(t)
+        np.testing.assert_array_equal(
+            t.to_numpy(),
+            pd.DataFrame(
+                [
+                    {
+                        'account_id': 2, 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 222.22,
+                        'name':       'Roth IRA'
+                    },
+                    {
+                        'account_id': 2, 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': 250.00,
+                        'name':       'Dividends'
+                    },
+                    {
+                        'account_id': 2, 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 222.22,
+                        'name':       'Roth IRA'
+                    }
+                ]
+            ).to_numpy()
+        )
 
 
 if __name__ == "__main__":
