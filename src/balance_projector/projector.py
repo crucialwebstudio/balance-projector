@@ -190,17 +190,40 @@ class Projector:
                             ignore_index=True)
         return df
 
-    def get_running_balance(self, account_id, start_date, end_date):
+    def get_filtered_transactions(self, account_id, start_date, end_date):
         start = dp.parse(start_date)
         end = dp.parse(end_date)
         trans_df = self.get_transactions_data_frame()
-        acct_df = self.get_accounts_data_frame()
 
         # filter transactions
         mask = (trans_df['account_id'] == account_id) & ((trans_df['date'] >= start) & (trans_df['date'] <= end))
         filtered = trans_df[mask]
-
-        # apply running balance
-        starting_balance = acct_df.loc[account_id]['balance']
-        filtered['balance'] = starting_balance + filtered['amount'].cumsum()
         return filtered
+
+    def get_running_balance(self, account_id, start_date, end_date):
+        trans_df = self.get_filtered_transactions(account_id, start_date, end_date)
+        acct_df = self.get_accounts_data_frame()
+        starting_balance = acct_df.loc[account_id]['balance']
+        return self.apply_running_balance(starting_balance, trans_df)
+
+    def group_by_date(self, account_id, start_date, end_date):
+        trans_df = self.get_filtered_transactions(account_id, start_date, end_date)
+        acct_df = self.get_accounts_data_frame()
+
+        # create new column with "transaction: amount" string
+        trans_df['amt_desc'] = trans_df['amount'].astype(str).str.cat(trans_df['name'], sep=': ')
+
+        # group by date
+        df_date_group = trans_df.groupby('date').agg({
+            'amt_desc': '<br>'.join,
+            'amount':   'sum'
+        })
+
+        starting_balance = acct_df.loc[account_id]['balance']
+        return self.apply_running_balance(starting_balance, df_date_group)
+
+    @classmethod
+    def apply_running_balance(cls, starting_balance, trans_df):
+        trans_df['balance'] = starting_balance + trans_df['amount'].cumsum()
+        return trans_df
+
