@@ -22,10 +22,7 @@ def cli():
     pass
 
 
-@cli.command(
-    help='Project balances',
-    short_help='Project account balances into the future.'
-)
+@cli.command(help='Print running balance')
 @click.option('--account-id', type=click.INT, required=True, help='Account Id to project.')
 @click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
               default=str(date.today()), help='Start date.')
@@ -44,10 +41,7 @@ def project(account_id, start_date, end_date):
     click.echo(tabulate(df.to_numpy(), headers=headers))
 
 
-@cli.command(
-    help='Project balances',
-    short_help='Project account balances into the future.'
-)
+@cli.command(help='Run the dash app')
 @click.option('--account-id', type=click.INT, required=True, help='Account Id to project.')
 @click.option('--starting-balance', type=click.FLOAT, required=True, help='Starting balance of the account.')
 @click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True, help='Start date.')
