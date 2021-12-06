@@ -191,15 +191,16 @@ class Projector:
         return df
 
     def get_running_balance(self, account_id, start_date, end_date):
-        df = self.get_transactions_data_frame()
         start = dp.parse(start_date)
         end = dp.parse(end_date)
+        trans_df = self.get_transactions_data_frame()
+        acct_df = self.get_accounts_data_frame()
 
         # filter transactions
-        mask = (df['account_id'] == account_id) & ((df['date'] >= start) & (df['date'] <= end))
-        filtered = df[mask]
+        mask = (trans_df['account_id'] == account_id) & ((trans_df['date'] >= start) & (trans_df['date'] <= end))
+        filtered = trans_df[mask]
 
         # apply running balance
-        starting_balance = self.get_accounts_data_frame().loc[account_id]['balance']
+        starting_balance = acct_df.loc[account_id]['balance']
         filtered['balance'] = starting_balance + filtered['amount'].cumsum()
         return filtered
