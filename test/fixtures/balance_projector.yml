@@ -1,3 +1,26 @@
+accounts:
+  - account_id: 1
+    name: Checking
+    balance: 2043.15
+  - account_id: 2
+    name: Savings
+    balance: 1000.00
+  - account_id: 3
+    name: Credit Card
+    balance: 649.32
+  - account_id: 4
+    name: Brokerage Account
+    balance: 32582.83
+  - account_id: 5
+    name: 401k
+    balance: 3652.17
+  - account_id: 6
+    name: Traditional IRA
+    balance: 59247.24
+  - account_id: 7
+    name: Roth IRA
+    balance: 85962.87
+
 scheduled_transactions:
   - account_id: 1
     name: Paycheck

@@ -4,7 +4,7 @@ from datetime import datetime
 import dateutil.rrule as dr
 import dateutil.parser as dp
 
-pd.options.mode.chained_assignment = None    # no warning message and no exception is raised
+pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
 
 frequency_map = {
     'daily':   dr.DAILY,
@@ -91,6 +91,13 @@ class Transfer:
 
 
 @attr.define(kw_only=True)
+class Account:
+    account_id: int
+    name: str
+    balance: float
+
+
+@attr.define(kw_only=True)
 class ScheduledTransaction:
     account_id: int
     name: str
@@ -145,10 +152,16 @@ class ScheduledTransaction:
 
 @attr.define(kw_only=True)
 class Projector:
+    accounts = attr.ib(factory=list)
     scheduled_transactions = attr.ib(factory=list)
 
     @classmethod
     def from_spec(cls, spec):
+        accounts = []
+        for account_spec in spec['accounts']:
+            accounts.append(Account(account_id=account_spec['account_id'], name=account_spec['name'],
+                                    balance=account_spec['balance']))
+
         scheduled_transactions = []
         for param in spec['scheduled_transactions']:
             date_spec = DateSpec.from_spec(param['date_spec'])
@@ -158,7 +171,11 @@ class Projector:
                                       type=param['type'], date_spec=date_spec, transfer=transfer)
 
             scheduled_transactions.append(st)
-        return cls(scheduled_transactions=scheduled_transactions)
+        return cls(accounts=accounts, scheduled_transactions=scheduled_transactions)
+
+    def get_accounts_data_frame(self):
+        df = pd.DataFrame.from_records(list(map(attr.asdict, self.accounts)), index='account_id')
+        return df
 
     def get_transactions(self):
         transactions = []

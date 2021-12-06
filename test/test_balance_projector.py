@@ -253,7 +253,7 @@ class TestProjector(unittest.TestCase):
         # Feb. transactions for account_id=1
         mask = (df['account_id'] == 1) & ((df['date'] > '2022-02-01') & (df['date'] < '2022-02-28'))
         t = df[mask]
-        DebugHelper.pprint(t)
+        # DebugHelper.pprint(t)
         np.testing.assert_array_equal(
             t.to_numpy(),
             pd.DataFrame(
@@ -281,7 +281,7 @@ class TestProjector(unittest.TestCase):
         # Feb. transactions for account_id=2
         mask = (df['account_id'] == 2) & ((df['date'] > '2022-02-01') & (df['date'] < '2022-02-28'))
         t = df[mask]
-        DebugHelper.pprint(t)
+        # DebugHelper.pprint(t)
         np.testing.assert_array_equal(
             t.to_numpy(),
             pd.DataFrame(
@@ -301,6 +301,21 @@ class TestProjector(unittest.TestCase):
                 ]
             ).to_numpy()
         )
+
+    def test_get_accounts_data_frame(self):
+        spec = FixtureHelper.get_yaml('balance_projector.yml')
+        projector = Projector.from_spec(spec)
+        df = projector.get_accounts_data_frame()
+        # DebugHelper.pprint(df)
+
+        # spot check some accounts
+        checking = df.loc[1]
+        self.assertEqual(checking['name'], 'Checking')
+        self.assertEqual(checking['balance'], 2043.15)
+
+        savings = df.loc[2]
+        self.assertEqual(savings['name'], 'Savings')
+        self.assertEqual(savings['balance'], 1000.00)
 
 
 if __name__ == "__main__":
