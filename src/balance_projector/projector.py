@@ -92,9 +92,51 @@ class Transfer:
 
 @attr.define(kw_only=True)
 class Account:
-    account_id: int
-    name: str
-    balance: float
+    account_id: int = attr.ib()
+    name: str = attr.ib()
+    balance: float = attr.ib()
+    transactions: list = attr.ib(factory=list)
+
+    @classmethod
+    def from_spec(cls, spec):
+        return cls(account_id=spec['account_id'], name=spec['name'], balance=spec['balance'])
+
+    def add_transaction(self, transaction):
+        if transaction.account_id != self.account_id:
+            raise Exception('Invalid account id')
+        self.transactions.append(transaction)
+
+    def generate_transactions_data_frame(self):
+        df = pd.DataFrame.from_records(list(map(attr.asdict, self.transactions)))
+        df = df.sort_values(by=['date', 'name'],
+                            ascending=True,
+                            ignore_index=True)
+        return df
+
+    def get_running_balance(self, start_date, end_date):
+        trans_df = self.generate_transactions_data_frame()
+        # filter transactions
+        start = dp.parse(start_date)
+        end = dp.parse(end_date)
+        mask = ((trans_df['date'] >= start) & (trans_df['date'] <= end))
+        filtered = trans_df[mask]
+        return self.apply_running_balance(self.balance, filtered)
+
+    def get_running_balance_grouped(self, start_date, end_date):
+        trans_df = self.get_running_balance(start_date, end_date)
+        # create new column with "transaction: amount" string
+        trans_df['amt_desc'] = trans_df['amount'].astype(str).str.cat(trans_df['name'], sep=': ')
+        # group by date
+        df_date_group = trans_df.groupby('date').agg({
+            'amt_desc': '<br>'.join,
+            'amount':   'sum'
+        })
+        return self.apply_running_balance(self.balance, df_date_group)
+
+    @classmethod
+    def apply_running_balance(cls, starting_balance, trans_df):
+        trans_df['balance'] = starting_balance + trans_df['amount'].cumsum()
+        return trans_df
 
 
 @attr.define(kw_only=True)
@@ -152,78 +194,27 @@ class ScheduledTransaction:
 
 @attr.define(kw_only=True)
 class Projector:
-    accounts = attr.ib(factory=list)
-    scheduled_transactions = attr.ib(factory=list)
+    accounts: dict = attr.ib()
 
     @classmethod
     def from_spec(cls, spec):
-        accounts = []
+        account_map = {}
         for account_spec in spec['accounts']:
-            accounts.append(Account(account_id=account_spec['account_id'], name=account_spec['name'],
-                                    balance=account_spec['balance']))
-
-        scheduled_transactions = []
+            account = Account.from_spec(account_spec)
+            account_map[account.account_id] = account
         for param in spec['scheduled_transactions']:
             date_spec = DateSpec.from_spec(param['date_spec'])
             transfer = None if param['transfer'] is None else Transfer(direction=param['transfer']['direction'],
                                                                        account_id=param['transfer']['account_id'])
             st = ScheduledTransaction(account_id=param['account_id'], name=param['name'], amount=param['amount'],
                                       type=param['type'], date_spec=date_spec, transfer=transfer)
+            # generate all transactions
+            # NOTE: As a rule, a ScheduledTransaction can generate a Transaction for any account
+            for tr in st.generate_transactions():
+                account = account_map.get(tr.account_id)
+                # add transaction to account
+                account.add_transaction(tr)
+        return cls(accounts=account_map)
 
-            scheduled_transactions.append(st)
-        return cls(accounts=accounts, scheduled_transactions=scheduled_transactions)
-
-    def get_accounts_data_frame(self):
-        df = pd.DataFrame.from_records(list(map(attr.asdict, self.accounts)), index='account_id')
-        return df
-
-    def get_transactions(self):
-        transactions = []
-        for st in self.scheduled_transactions:
-            transactions.extend(st.generate_transactions())
-        return transactions
-
-    def get_transactions_data_frame(self):
-        df = pd.DataFrame.from_records(list(map(attr.asdict, self.get_transactions())))
-        df = df.sort_values(by=['date', 'name'],
-                            ascending=True,
-                            ignore_index=True)
-        return df
-
-    def get_filtered_transactions(self, account_id, start_date, end_date):
-        start = dp.parse(start_date)
-        end = dp.parse(end_date)
-        trans_df = self.get_transactions_data_frame()
-
-        # filter transactions
-        mask = (trans_df['account_id'] == account_id) & ((trans_df['date'] >= start) & (trans_df['date'] <= end))
-        filtered = trans_df[mask]
-        return filtered
-
-    def get_running_balance(self, account_id, start_date, end_date):
-        trans_df = self.get_filtered_transactions(account_id, start_date, end_date)
-        acct_df = self.get_accounts_data_frame()
-        starting_balance = acct_df.loc[account_id]['balance']
-        return self.apply_running_balance(starting_balance, trans_df)
-
-    def group_by_date(self, account_id, start_date, end_date):
-        trans_df = self.get_filtered_transactions(account_id, start_date, end_date)
-        acct_df = self.get_accounts_data_frame()
-
-        # create new column with "transaction: amount" string
-        trans_df['amt_desc'] = trans_df['amount'].astype(str).str.cat(trans_df['name'], sep=': ')
-
-        # group by date
-        df_date_group = trans_df.groupby('date').agg({
-            'amt_desc': '<br>'.join,
-            'amount':   'sum'
-        })
-
-        starting_balance = acct_df.loc[account_id]['balance']
-        return self.apply_running_balance(starting_balance, df_date_group)
-
-    @classmethod
-    def apply_running_balance(cls, starting_balance, trans_df):
-        trans_df['balance'] = starting_balance + trans_df['amount'].cumsum()
-        return trans_df
-
+    def get_account(self, account_id):
+        return self.accounts.get(account_id)

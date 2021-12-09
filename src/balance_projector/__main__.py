@@ -31,7 +31,8 @@ def cli():
 def project(account_id, start_date, end_date):
     spec = get_yaml()
     projector = Projector.from_spec(spec)
-    df = projector.get_running_balance(account_id, start_date.strftime(DATE_FORMAT), end_date.strftime(DATE_FORMAT))
+    account = projector.get_account(account_id)
+    df = account.get_running_balance(start_date.strftime(DATE_FORMAT), end_date.strftime(DATE_FORMAT))
     headers = ['Account ID', 'Date', 'Amount', 'Name', 'Balance']
     click.echo(tabulate(df.to_numpy(), headers=headers))
 
@@ -45,7 +46,8 @@ def project(account_id, start_date, end_date):
 def dash(account_id, start_date, end_date):
     spec = get_yaml()
     projector = Projector.from_spec(spec)
-    df = projector.group_by_date(account_id, start_date.strftime(DATE_FORMAT), end_date.strftime(DATE_FORMAT))
+    account = projector.get_account(account_id)
+    df = account.get_running_balance_grouped(start_date.strftime(DATE_FORMAT), end_date.strftime(DATE_FORMAT))
     app = create_app(df)
     app.run_server(debug=True)
 
