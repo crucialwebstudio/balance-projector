@@ -8,12 +8,13 @@ DATE_FORMAT = '%Y-%m-%d'
 
 def create_app(trans_group_df):
     chart = go.Figure()
-    chart.update_layout(title='Checking Account')
+    chart.update_layout(title='Balance over time')
     chart.add_trace(
         go.Scatter(
             name='Checking Account',
             x=trans_group_df.index, y=trans_group_df['balance'].round(0),
             mode='lines+markers',
+            line_shape='spline',
             hovertext=trans_group_df['amt_desc'],
             hovertemplate=
             '<b>$%{y:.2f}</b> (%{x})<br><br>' +
