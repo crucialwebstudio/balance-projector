@@ -6,6 +6,8 @@ import dateutil.parser as dp
 
 pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
 
+DATE_FORMAT = '%Y-%m-%d'
+
 frequency_map = {
     'daily':   dr.DAILY,
     'weekly':  dr.WEEKLY,
@@ -107,6 +109,7 @@ class Account:
         self.transactions.append(transaction)
 
     def generate_transactions_data_frame(self):
+        # TODO Handle empty dataframes
         df = pd.DataFrame.from_records(list(map(attr.asdict, self.transactions)))
         df = df.sort_values(by=['date', 'name'],
                             ascending=True,
@@ -193,8 +196,16 @@ class ScheduledTransaction:
 
 
 @attr.define(kw_only=True)
+class Chart:
+    name: str = attr.ib()
+    type: str = attr.ib()
+    accounts: list = attr.ib()
+
+
+@attr.define(kw_only=True)
 class Projector:
     accounts: dict = attr.ib()
+    chart_spec: dict = attr.ib()
 
     @classmethod
     def from_spec(cls, spec):
@@ -208,13 +219,30 @@ class Projector:
                                                                        account_id=param['transfer']['account_id'])
             st = ScheduledTransaction(account_id=param['account_id'], name=param['name'], amount=param['amount'],
                                       type=param['type'], date_spec=date_spec, transfer=transfer)
-            # generate all transactions
-            # NOTE: As a rule, a ScheduledTransaction can generate a Transaction for any account
             for tr in st.generate_transactions():
+                # NOTE: Due to transfers, a ScheduledTransaction can generate a Transaction for any other account.
+                # So we get account_id from each generated transaction
                 account = account_map.get(tr.account_id)
                 # add transaction to account
                 account.add_transaction(tr)
-        return cls(accounts=account_map)
+
+        return cls(accounts=account_map, chart_spec=spec['chart_spec'])
 
     def get_account(self, account_id):
         return self.accounts.get(account_id)
+
+    def get_charts(self, start_date, end_date):
+        charts = []
+        for chart in self.chart_spec:
+            accounts = list(
+                map(
+                    lambda a: dict(
+                        name=self.get_account(a).name,
+                        df=self.get_account(a).get_running_balance_grouped(
+                            start_date.strftime(DATE_FORMAT),
+                            end_date.strftime(DATE_FORMAT)
+                        )), chart['account_ids']
+                )
+            )
+            charts.append(Chart(name=chart['name'], type=chart['type'], accounts=accounts))
+        return charts

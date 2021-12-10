@@ -6,38 +6,41 @@ from dash import Dash, dcc, html
 DATE_FORMAT = '%Y-%m-%d'
 
 
-def create_app(trans_group_df):
-    chart = go.Figure()
-    chart.update_layout(title='Balance over time')
-    chart.add_trace(
-        go.Scatter(
-            name='Checking Account',
-            x=trans_group_df.index, y=trans_group_df['balance'].round(0),
-            mode='lines+markers',
-            line_shape='spline',
-            hovertext=trans_group_df['amt_desc'],
-            hovertemplate=
-            '<b>$%{y:.2f}</b> (%{x})<br><br>' +
-            '%{hovertext}'
-        )
-    )
+def create_app(*charts):
+    children = []
+    for chart in charts:
+        if chart.type == 'line':
+            fig = go.Figure()
+            fig.update_layout(title=chart.name)
+            for account in chart.accounts:
+                transactions_df = account['df']
+                fig.add_trace(
+                    go.Scatter(
+                        name=account['name'],
+                        x=transactions_df.index, y=transactions_df['balance'].round(0),
+                        mode='lines+markers',
+                        line_shape='spline',
+                        hovertext=transactions_df['amt_desc'],
+                        hovertemplate=
+                        '<b>$%{y:.2f}</b> (%{x})<br><br>' +
+                        '%{hovertext}'
+                    )
+                )
+            children.append(dcc.Graph(figure=fig))
 
-    headers = ['date']
-    headers.extend(list(trans_group_df.columns))
-    table = go.Figure(data=[go.Table(
-        header=dict(values=headers, align='left', fill_color='paleturquoise'),
-        cells=dict(values=[trans_group_df.index, trans_group_df.amt_desc, trans_group_df.amount, trans_group_df.balance], align='left', fill_color='lavender')
-    )])
-    table.update_layout(title='Checking Account')
+        if chart.type == 'table':
+            for account in chart.accounts:
+                transactions_df = account['df']
+                headers = ['date']
+                headers.extend(list(transactions_df.columns))
+                fig = go.Figure(data=[go.Table(
+                    header=dict(values=headers, align='left', fill_color='paleturquoise'),
+                    cells=dict(values=[transactions_df.index, transactions_df.amt_desc, transactions_df.amount,
+                                       transactions_df.balance], align='left', fill_color='lavender')
+                )])
+                fig.update_layout(title=account['name'])
+                children.append(dcc.Graph(figure=fig))
 
-    # fig = px.line(df, x=df.index, y=df['balance'].round(0),
-    #               hover_name=df['balance'].round(0),
-    #               hover_data={
-    #                   'date': df.index,
-    #                   'desc': df['amt_desc']
-    #               },
-    #               title='Checking Account',
-    #               markers=True)
     app = Dash(__name__)
     app.layout = html.Div(
         children=[
@@ -46,12 +49,7 @@ def create_app(trans_group_df):
                 children="Project your future account"
                          " balances based on a specification file.",
             ),
-            dcc.Graph(
-                figure=chart,
-            ),
-            dcc.Graph(
-                figure=table,
-            ),
+            html.Div(children=children)
         ]
     )
 

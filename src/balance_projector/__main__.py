@@ -5,10 +5,8 @@ from dateutil.relativedelta import relativedelta
 import click
 import yaml
 from tabulate import tabulate
-from .projector import Projector
+from .projector import Projector, DATE_FORMAT
 from .dash_app import create_app
-
-DATE_FORMAT = '%Y-%m-%d'
 
 
 def get_yaml():
@@ -38,17 +36,15 @@ def project(account_id, start_date, end_date):
 
 
 @cli.command(help='Run the dash app')
-@click.option('--account-id', type=click.INT, required=True, help='Account Id to project.')
 @click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
               default=str(date.today()), help='Start date.')
 @click.option('--end-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
               default=str(date.today() + relativedelta(years=1)), help='End date.')
-def dash(account_id, start_date, end_date):
+def dash(start_date, end_date):
     spec = get_yaml()
     projector = Projector.from_spec(spec)
-    account = projector.get_account(account_id)
-    df = account.get_running_balance_grouped(start_date.strftime(DATE_FORMAT), end_date.strftime(DATE_FORMAT))
-    app = create_app(df)
+    charts = projector.get_charts(start_date, end_date)
+    app = create_app(*charts)
     app.run_server(debug=True)
 
 
