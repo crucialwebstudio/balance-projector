@@ -39,3 +39,37 @@ scheduled_transactions:
       day_of_week: null
       day_of_month: 15
     transfer: null
+chart_spec:
+  - name: Primary Accounts
+    type: line
+    account_ids:
+      - 1
+      - 2
+      - 3
+  - name: Freedom Accounts
+    type: line
+    account_ids:
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
+  - name: Credit Cards
+    type: line
+    account_ids:
+      - 3
+      - 9
+      - 10
+  - name: Raw Data
+    type: table
+    account_ids:
+      - 1
+      - 2
+      - 3
+      - 9
+      - 10
+      - 4
+      - 5
+      - 6
+      - 7
+      - 8
