@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import datetime
 import dateutil.rrule as dr
 import dateutil.parser as dp
+from .exceptions import AccountNotFoundException
 
 pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
 
@@ -237,7 +238,10 @@ class Projector:
         return cls(accounts=account_map, transactions=transactions, chart_spec=spec['chart_spec'])
 
     def get_account(self, account_id):
-        return self.accounts.get(account_id)
+        account = self.accounts.get(account_id, None)
+        if account is None:
+            raise AccountNotFoundException(f'account not found: {account_id}')
+        return account
 
     def get_charts(self, start_date, end_date):
         charts = []
