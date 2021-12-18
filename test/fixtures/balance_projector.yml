@@ -56,3 +56,23 @@ accounts:
           day_of_week: null
           day_of_month: 15
         transfer: null
+chart_spec:
+  - name: Primary Accounts
+    type: line
+    account_ids:
+      - checking
+      - savings
+      - credit_card
+  - name: Investment Accounts
+    type: line
+    account_ids:
+      - taxable_brokerage
+      - 401k
+  - name: Raw Data
+    type: table
+    account_ids:
+      - checking
+      - savings
+      - credit_card
+      - taxable_brokerage
+      - 401k
