@@ -244,8 +244,8 @@ class TestProjector(unittest.TestCase):
     def test_get_transactions_data_frame(self):
         spec = FixtureHelper.get_yaml('balance_projector.yml')
         projector = Projector.from_spec(spec)
-        checking_df = projector.get_account(1).generate_transactions_data_frame()
-        savings_df = projector.get_account(2).generate_transactions_data_frame()
+        checking_df = projector.get_account('checking').generate_transactions_data_frame()
+        taxable_df = projector.get_account('taxable_brokerage').generate_transactions_data_frame()
         # DebugHelper.pprint(checking_df)
 
         """
@@ -259,43 +259,41 @@ class TestProjector(unittest.TestCase):
             pd.DataFrame(
                 [
                     {
-                        'account_id': 1, 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 2500.00,
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -100.00,
+                        'name':       'Freedom Fund'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 2500.00,
                         'name':       'Paycheck'
                     },
                     {
-                        'account_id': 1, 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -222.22,
-                        'name':       'Roth IRA'
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -100.00,
+                        'name':       'Freedom Fund'
                     },
                     {
-                        'account_id': 1, 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 2500.00,
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 2500.00,
                         'name':       'Paycheck'
-                    },
-                    {
-                        'account_id': 1, 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -222.22,
-                        'name':       'Roth IRA'
                     }
                 ]
             ).to_numpy()
         )
 
-        mask = ((savings_df['date'] > '2022-02-01') & (savings_df['date'] < '2022-02-28'))
-        t = savings_df[mask]
+        mask = ((taxable_df['date'] > '2022-02-01') & (taxable_df['date'] < '2022-02-28'))
+        t = taxable_df[mask]
         # DebugHelper.pprint(t)
         np.testing.assert_array_equal(
             t.to_numpy(),
             pd.DataFrame(
                 [
                     {
-                        'account_id': 2, 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 222.22,
-                        'name':       'Roth IRA'
+                        'account_id': 'taxable_brokerage', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0),
+                        'amount':     100.00,
+                        'name':       'Freedom Fund'
                     },
                     {
-                        'account_id': 2, 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': 250.00,
-                        'name':       'Dividends'
-                    },
-                    {
-                        'account_id': 2, 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 222.22,
-                        'name':       'Roth IRA'
+                        'account_id': 'taxable_brokerage', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0),
+                        'amount':     100.00,
+                        'name':       'Freedom Fund'
                     }
                 ]
             ).to_numpy()
