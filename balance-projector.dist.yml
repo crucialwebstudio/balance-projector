@@ -3,7 +3,8 @@ accounts:
     name: Checking
     balance: 2043.15
     scheduled_transactions:
-      - name: Paycheck
+      paycheck:
+        name: Paycheck
         amount: 2500.00 # float: always positive. debit/credit is determined by "type"
         type: income    # str: income|expense|transfer
         date_spec:
@@ -16,7 +17,8 @@ accounts:
         transfer: null # dict|null: Transfer spec. Required when type: 'transfer', null otherwise.
         #  direction: to # str: to|from
         #  account_id: savings # string: account_id for the transfer
-      - name: Freedom Fund
+      freedom_fund:
+        name: Freedom Fund
         amount: 100.00
         type: transfer
         date_spec:
@@ -45,7 +47,8 @@ accounts:
     name: 401k
     balance: 3652.17
     scheduled_transactions:
-      - name: Dividends
+      dividends:
+        name: Dividends
         amount: 250.00
         type: income
         date_spec:

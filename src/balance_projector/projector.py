@@ -81,7 +81,8 @@ class DateSpec:
 
 @attr.define(kw_only=True)
 class Transaction:
-    account_id: int
+    transaction_id: str
+    account_id: str
     date: str
     amount: float
     name: str
@@ -145,6 +146,7 @@ class Account:
 
 @attr.define(kw_only=True)
 class ScheduledTransaction:
+    transaction_id: str
     account_id: int
     name: str
     amount: float
@@ -180,20 +182,20 @@ class ScheduledTransaction:
 
         # debit sending account
         transactions.append(
-            Transaction(account_id=sending_account_id, date=date, amount=-abs(self.amount), name=self.name)
+            Transaction(transaction_id=self.transaction_id, account_id=sending_account_id, date=date, amount=-abs(self.amount), name=self.name)
         )
         # credit receiving account
         transactions.append(
-            Transaction(account_id=receiving_account_id, date=date, amount=abs(self.amount), name=self.name)
+            Transaction(transaction_id=self.transaction_id, account_id=receiving_account_id, date=date, amount=abs(self.amount), name=self.name)
         )
 
         return transactions
 
     def create_credit(self, date):
-        return [Transaction(account_id=self.account_id, date=date, amount=abs(self.amount), name=self.name)]
+        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date, amount=abs(self.amount), name=self.name)]
 
     def create_debit(self, date):
-        return [Transaction(account_id=self.account_id, date=date, amount=-abs(self.amount), name=self.name)]
+        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date, amount=-abs(self.amount), name=self.name)]
 
 
 @attr.define(kw_only=True)
@@ -217,12 +219,13 @@ class Projector:
             account = Account.from_spec(account_id, account_spec)
             account_map[account.account_id] = account
             if account_spec['scheduled_transactions']:
-                for trans in account_spec['scheduled_transactions']:
+                for trans_id, trans in account_spec['scheduled_transactions'].items():
                     transfer = None if trans['transfer'] is None else Transfer(direction=trans['transfer']['direction'],
-                                                                               account_id=trans['transfer']['account_id'])
-                    st = ScheduledTransaction(account_id=account_id, name=trans['name'], amount=trans['amount'],
-                                              type=trans['type'], date_spec=DateSpec.from_spec(trans['date_spec']),
-                                              transfer=transfer)
+                                                                               account_id=trans['transfer'][
+                                                                                   'account_id'])
+                    st = ScheduledTransaction(transaction_id=trans_id, account_id=account_id, name=trans['name'],
+                                              amount=trans['amount'], type=trans['type'],
+                                              date_spec=DateSpec.from_spec(trans['date_spec']), transfer=transfer)
 
                     """
                     NOTE: Due to transfers, a ScheduledTransaction can generate a Transaction for any other account.
@@ -233,7 +236,11 @@ class Projector:
 
         # one last iteration to add transactions to the account
         for t in transactions:
-            account_map.get(t.account_id).add_transaction(t)
+            account = account_map.get(t.account_id, None)
+            if account is None:
+                raise AccountNotFoundException(
+                    f'Account not found for transaction: account_id: {t.account_id}, transaction_id: {t.transaction_id}')
+            account.add_transaction(t)
 
         return cls(accounts=account_map, transactions=transactions, chart_spec=spec['chart_spec'])
 
