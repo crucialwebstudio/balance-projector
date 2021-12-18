@@ -109,8 +109,8 @@ class Account:
         self.transactions.append(transaction)
 
     def generate_transactions_data_frame(self):
-        # TODO Handle empty dataframes
-        df = pd.DataFrame.from_records(list(map(attr.asdict, self.transactions)))
+        data = list(map(attr.asdict, self.transactions))
+        df = pd.DataFrame(data, columns=['account_id', 'date', 'amount', 'name'])
         df = df.sort_values(by=['date', 'name'],
                             ascending=True,
                             ignore_index=True)
