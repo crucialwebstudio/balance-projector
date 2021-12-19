@@ -72,7 +72,7 @@ chart_spec:
       - taxable_brokerage
       - 401k
   - name: Raw Data
-    type: table
+    type: datatable
     account_ids:
       - checking
       - savings

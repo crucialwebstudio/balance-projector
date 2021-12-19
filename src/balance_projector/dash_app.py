@@ -28,7 +28,7 @@ def create_app(*charts):
                 )
             children.append(dcc.Graph(figure=fig))
 
-        if chart.type == 'table':
+        if chart.type == 'datatable':
             for account in chart.accounts:
                 transactions_df = account['df']
                 fig = dash_table.DataTable(
