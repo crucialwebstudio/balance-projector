@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import plotly.express as px
 import plotly.graph_objects as go
-from dash import Dash, dcc, html
+from dash import Dash, dcc, html, dash_table
 
 DATE_FORMAT = '%Y-%m-%d'
 
@@ -31,15 +31,49 @@ def create_app(*charts):
         if chart.type == 'table':
             for account in chart.accounts:
                 transactions_df = account['df']
-                headers = ['date']
-                headers.extend(list(transactions_df.columns))
-                fig = go.Figure(data=[go.Table(
-                    header=dict(values=headers, align='left', fill_color='paleturquoise'),
-                    cells=dict(values=[transactions_df.index, transactions_df.amt_desc, transactions_df.amount,
-                                       transactions_df.balance], align='left', fill_color='lavender')
-                )])
-                fig.update_layout(title=account['name'])
-                children.append(dcc.Graph(figure=fig))
+                fig = dash_table.DataTable(
+                    columns=[
+                        dict(name='Date', id='Date', type='datetime'),
+                        # Unfortunately there is no foratting on datetime types.
+                        # https://community.plotly.com/t/is-it-any-way-to-set-format-of-date-time-in-datatable/29514
+                        # https://dash.plotly.com/datatable/typing
+                        dict(name='Description', id='Description'),
+                        dict(name='Amount', id='Amount', type='numeric', format=dash_table.FormatTemplate.money(2)),
+                        dict(name='Balance', id='Balance', type='numeric', format=dash_table.FormatTemplate.money(2))
+                    ],
+                    data=[
+                        {
+                            'Date':        row[0],
+                            'Description': row[1].replace('<br>', '\n'),
+                            # <br> works in tooltips, not datatable.
+                            # Using \n combined with style_cell={'whiteSpace': 'pre-line'} accomplishes the goal.
+                            # https://community.plotly.com/t/creating-new-line-within-datatable-cell/44145/3
+                            'Amount':      row[2],
+                            'Balance':     row[3]
+                        }
+                        for row in zip(transactions_df.index, transactions_df.amt_desc, transactions_df.amount,
+                                       transactions_df.balance)
+                    ],
+                    editable=False,
+                    filter_action='native',
+                    sort_action='native',
+                    sort_mode='single',
+                    page_action='native',
+                    page_current=0,
+                    page_size=25,
+                    style_cell={'minWidth': 95, 'maxWidth': 95, 'width': 95, 'whiteSpace': 'pre-line'},
+                    style_cell_conditional=[
+                        {
+                            'if':        {'column_id': c},
+                            'textAlign': 'left'
+                        } for c in ['Date', 'Description']
+                    ],
+                    style_data={'whitespace': 'normal', 'height': 'auto'}
+                )
+                children.append(html.Div([
+                    html.H1(account['name']),
+                    fig
+                ]))
 
     app = Dash(__name__)
     app.layout = html.Div(
