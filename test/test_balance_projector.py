@@ -7,14 +7,7 @@ import numpy as np
 from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
 
 
-class TestProjector(unittest.TestCase):
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
+class TestDates(unittest.TestCase):
     @parameterized.expand([
         (
                 # Every Month on the 31st
@@ -26,6 +19,10 @@ class TestProjector(unittest.TestCase):
                     'interval':     1,
                     'day_of_week':  None,
                     'day_of_month': 31
+                },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2022-11-05'
                 },
                 [
                     datetime.datetime(2021, 11, 30, 0, 0, 0),
@@ -53,6 +50,10 @@ class TestProjector(unittest.TestCase):
                     'day_of_week':  None,
                     'day_of_month': 30
                 },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2022-11-05'
+                },
                 [
                     datetime.datetime(2021, 11, 30, 0, 0, 0),
                     datetime.datetime(2021, 12, 31, 0, 0, 0),
@@ -78,6 +79,10 @@ class TestProjector(unittest.TestCase):
                     'interval':     2,
                     'day_of_week':  'fri',
                     'day_of_month': None
+                },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2022-11-05'
                 },
                 [
                     datetime.datetime(2021, 11, 5, 0, 0),
@@ -120,15 +125,83 @@ class TestProjector(unittest.TestCase):
                     'day_of_week':  None,
                     'day_of_month': None
                 },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2021-11-05'
+                },
                 [
                     datetime.datetime(2021, 11, 5, 0, 0)
                 ]
         )
     ])
-    def test_create_dates(self, name, param, expected):
-        datespec = DateSpec.from_spec(param)
-        actual = datespec.generate_dates()
+    def test_create_dates_fixed(self, name, spec, date_filter, expected):
+        datespec = DateSpec.from_spec(spec)
+        actual = datespec.generate_dates(start_date=date_filter['start_date'], end_date=date_filter['end_date'])
         self.assertEqual(actual, expected)
+
+    @parameterized.expand([
+        (
+                # Every Month on the 31st
+                "monthly_31st_fixed",
+                {
+                    'start_date':   '2021-11-05',
+                    'end_date':     '2022-11-05',
+                    'frequency':    'monthly',
+                    'interval':     1,
+                    'day_of_week':  None,
+                    'day_of_month': 31
+                },
+                {
+                    'start_date': '2022-01-01',
+                    'end_date':   '2022-06-30'
+                },
+                [
+                    datetime.datetime(2022, 1, 31, 0, 0, 0),
+                    datetime.datetime(2022, 2, 28, 0, 0, 0),
+                    datetime.datetime(2022, 3, 31, 0, 0, 0),
+                    datetime.datetime(2022, 4, 30, 0, 0, 0),
+                    datetime.datetime(2022, 5, 31, 0, 0, 0),
+                    datetime.datetime(2022, 6, 30, 0, 0, 0)
+                ]
+        ),
+        (
+                # Every Month on the 30th
+                "monthly_30th_infinite",
+                {
+                    'start_date':   '2021-11-05',
+                    'end_date':     None,
+                    'frequency':    'monthly',
+                    'interval':     1,
+                    'day_of_week':  None,
+                    'day_of_month': 30
+                },
+                {
+                    'start_date': '2022-01-01',
+                    'end_date':   '2022-06-30'
+                },
+                [
+                    datetime.datetime(2022, 1, 31, 0, 0, 0),
+                    datetime.datetime(2022, 2, 28, 0, 0, 0),
+                    datetime.datetime(2022, 3, 31, 0, 0, 0),
+                    datetime.datetime(2022, 4, 30, 0, 0, 0),
+                    datetime.datetime(2022, 5, 31, 0, 0, 0),
+                    datetime.datetime(2022, 6, 30, 0, 0, 0)
+                ]
+        )
+    ])
+    def test_create_dates_filtered(self, name, spec, date_filter, expected):
+        datespec = DateSpec.from_spec(spec)
+        actual = datespec.generate_dates(start_date=date_filter['start_date'], end_date=date_filter['end_date'])
+        self.assertEqual(actual, expected)
+
+
+class TestProjector(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
 
     @parameterized.expand([
         (
@@ -254,12 +327,12 @@ class TestProjector(unittest.TestCase):
                                   amount=param['amount'],
                                   type=param['type'], date_spec=DateSpec.from_spec(param['date_spec']),
                                   transfer=transfer)
-        actual = tr.generate_transactions()
+        actual = tr.generate_transactions('2022-01-01', '2022-12-31')
         self.assertEqual(actual, expected)
 
     def test_get_transactions_data_frame(self):
         spec = FixtureHelper.get_spec_fixture()
-        projector = Projector.from_spec(spec)
+        projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
         checking_df = projector.get_account('checking').generate_transactions_data_frame()
         taxable_df = projector.get_account('taxable_brokerage').generate_transactions_data_frame()
         # DebugHelper.pprint(checking_df)

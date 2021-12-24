@@ -29,8 +29,10 @@ def cli():
               default=str(date.today() + relativedelta(years=1)), help='End date.')
 def dash(start_date, end_date):
     spec = get_yaml()
-    projector = Projector.from_spec(spec)
-    charts = projector.get_charts(start_date, end_date)
+    projector = Projector.from_spec(spec,
+                                    start_date.strftime(DATE_FORMAT),
+                                    end_date.strftime(DATE_FORMAT))
+    charts = projector.get_charts()
     app = create_app(*charts)
     app.run_server(debug=True)
 

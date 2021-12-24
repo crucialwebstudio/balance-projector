@@ -1,29 +1,29 @@
 accounts:
-  checking:
-    name: Checking
-    balance: 2043.15
+  checking: # account_id: Unique ID to indentify the account.
+    name: Checking   # str: Name of the account.
+    balance: 2043.15 # float: Current balance. May be positive or negative.
     scheduled_transactions:
       paycheck:
         name: Paycheck
-        amount: 2500.00 # float: always positive. debit/credit is determined by "type"
+        amount: 2500.00 # float: Always positive. debit/credit is determined internally by "type".
         type: income    # str: income|expense|transfer
-        date_spec:
+        date_spec:                 # dict: Date spec. Defines date(s) for the transaction.
           start_date: '2021-11-05' # str: YYYY-MM-DD formatted start date
-          end_date: '2022-06-01'   # str: YYYY-MM-DD formatted end date
+          end_date: null           # str|null: YYYY-MM-DD formatted end date, null for inifinite
           frequency: weekly        # str: daily|weekly|monthly
-          interval: 2              # int: interval to repeat
+          interval: 2              # int: Interval to repeat
           day_of_week: fri         # str|null: mon|tue|wed|thu|fri|sat|sun
           day_of_month: null       # int|null: 1-31
         transfer: null # dict|null: Transfer spec. Required when type: 'transfer', null otherwise.
         #  direction: to # str: to|from
-        #  account_id: savings # string: account_id for the transfer
+        #  account_id: savings # str: account_id for the transfer
       freedom_fund:
         name: Freedom Fund
         amount: 100.00
         type: transfer
         date_spec:
           start_date: '2021-11-05'
-          end_date: '2022-06-01'
+          end_date: null
           frequency: weekly
           interval: 2
           day_of_week: fri
@@ -37,7 +37,7 @@ accounts:
     scheduled_transactions: null
   credit_card:
     name: Credit Card
-    balance: 649.32
+    balance: -649.32
     scheduled_transactions: null
   taxable_brokerage:
     name: Brokerage Account
@@ -53,7 +53,7 @@ accounts:
         type: income
         date_spec:
           start_date: '2021-11-05'
-          end_date: '2022-06-01'
+          end_date: null
           frequency: monthly
           interval: 1
           day_of_week: null
