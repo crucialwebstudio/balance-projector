@@ -37,7 +37,9 @@ class DateSpec:
 
     @classmethod
     def from_spec(cls, spec):
-        return cls(**spec)
+        return cls(start_date=spec['start_date'], end_date=spec['end_date'],
+                   frequency=spec['frequency'], interval=spec['interval'],
+                   day_of_week=spec['day_of_week'], day_of_month=spec['day_of_month'])
 
     def generate_dates(self, start_date, end_date):
         """
@@ -96,7 +98,7 @@ class DateSpec:
         )
         dates = list(rr)
 
-        # Filter start dates. End dates we limited in rrule
+        # Filter start dates. End dates were limited in rrule
         dates = [d for d in dates if d >= start_date]
         return dates
 
@@ -199,20 +201,24 @@ class ScheduledTransaction:
 
         # debit sending account
         transactions.append(
-            Transaction(transaction_id=self.transaction_id, account_id=sending_account_id, date=date, amount=-abs(self.amount), name=self.name)
+            Transaction(transaction_id=self.transaction_id, account_id=sending_account_id, date=date,
+                        amount=-abs(self.amount), name=self.name)
         )
         # credit receiving account
         transactions.append(
-            Transaction(transaction_id=self.transaction_id, account_id=receiving_account_id, date=date, amount=abs(self.amount), name=self.name)
+            Transaction(transaction_id=self.transaction_id, account_id=receiving_account_id, date=date,
+                        amount=abs(self.amount), name=self.name)
         )
 
         return transactions
 
     def create_credit(self, date):
-        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date, amount=abs(self.amount), name=self.name)]
+        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
+                            amount=abs(self.amount), name=self.name)]
 
     def create_debit(self, date):
-        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date, amount=-abs(self.amount), name=self.name)]
+        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
+                            amount=-abs(self.amount), name=self.name)]
 
 
 @attr.define(kw_only=True)
