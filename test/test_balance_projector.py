@@ -7,14 +7,7 @@ import numpy as np
 from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
 
 
-class TestProjector(unittest.TestCase):
-
-    def setUp(self):
-        pass
-
-    def tearDown(self):
-        pass
-
+class TestDates(unittest.TestCase):
     @parameterized.expand([
         (
                 # Every Month on the 31st
@@ -29,7 +22,7 @@ class TestProjector(unittest.TestCase):
                 },
                 {
                     'start_date': '2021-11-05',
-                    'end_date': '2022-11-05'
+                    'end_date':   '2022-11-05'
                 },
                 [
                     datetime.datetime(2021, 11, 30, 0, 0, 0),
@@ -145,6 +138,15 @@ class TestProjector(unittest.TestCase):
         datespec = DateSpec.from_spec(spec)
         actual = datespec.generate_dates(start_date=date_filter['start_date'], end_date=date_filter['end_date'])
         self.assertEqual(actual, expected)
+
+
+class TestProjector(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
 
     @parameterized.expand([
         (
