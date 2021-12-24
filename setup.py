@@ -15,7 +15,6 @@ setup(
         'python-dateutil',
         'PyYAML',
         'click',
-        'tabulate',
         'dash',
         'plotly',
         'pandas',
