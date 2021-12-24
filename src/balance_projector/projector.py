@@ -51,9 +51,7 @@ class DateSpec:
         """
         start_date = dp.parse(start_date)
         end_date = dp.parse(end_date)
-
         rrule_start = dp.parse(self.start_date)
-
         # Dates from spec could (more likely as time progresses) generate dates we don't care about.
         # Here we set the max `until` argument for the rrule.
         if self.end_date is None:
@@ -87,7 +85,6 @@ class DateSpec:
             More accurate would be 2021-10-29
             """
             day_of_month = -1
-
         rr = dr.rrule(
             frequency_map.get(self.frequency),
             dtstart=rrule_start,
@@ -97,7 +94,6 @@ class DateSpec:
             bymonthday=day_of_month
         )
         dates = list(rr)
-
         # Filter start dates. End dates were limited in rrule
         dates = [d for d in dates if d >= start_date]
         return dates
@@ -123,27 +119,10 @@ class Account:
     account_id: str = attr.ib()
     name: str = attr.ib()
     balance: float = attr.ib()
-    transactions: list = attr.ib(factory=list)
-
-    @classmethod
-    def from_spec(cls, account_id, spec):
-        return cls(account_id=account_id, name=spec['name'], balance=spec['balance'])
-
-    def add_transaction(self, transaction):
-        if transaction.account_id != self.account_id:
-            raise Exception('Invalid account id')
-        self.transactions.append(transaction)
-
-    def generate_transactions_data_frame(self):
-        data = list(map(attr.asdict, self.transactions))
-        df = pd.DataFrame(data, columns=['account_id', 'date', 'amount', 'name'])
-        df = df.sort_values(by=['date', 'name'],
-                            ascending=True,
-                            ignore_index=True)
-        return df
+    transactions_df: pd.DataFrame = attr.ib()
 
     def get_running_balance(self):
-        trans_df = self.generate_transactions_data_frame()
+        trans_df = self.transactions_df.copy()
         return self.apply_running_balance(self.balance, trans_df)
 
     def get_running_balance_grouped(self):
@@ -198,7 +177,6 @@ class ScheduledTransaction:
         elif self.transfer.direction == 'from':
             sending_account_id = self.transfer.account_id
             receiving_account_id = self.account_id
-
         # debit sending account
         transactions.append(
             Transaction(transaction_id=self.transaction_id, account_id=sending_account_id, date=date,
@@ -239,8 +217,6 @@ class Projector:
         account_map = {}
         transactions = []
         for account_id, account_spec in spec['accounts'].items():
-            account = Account.from_spec(account_id, account_spec)
-            account_map[account.account_id] = account
             if account_spec['scheduled_transactions']:
                 for trans_id, trans in account_spec['scheduled_transactions'].items():
                     transfer = None if trans['transfer'] is None else Transfer(direction=trans['transfer']['direction'],
@@ -256,14 +232,19 @@ class Projector:
                     # current iteration.
                     """
                     transactions.extend(st.generate_transactions(start_date, end_date))
-
-        # one last iteration to add transactions to the account
-        for t in transactions:
-            account = account_map.get(t.account_id, None)
-            if account is None:
-                raise AccountNotFoundException(
-                    f'Account not found for transaction: account_id: {t.account_id}, transaction_id: {t.transaction_id}')
-            account.add_transaction(t)
+        # convert transactions into a dataframe
+        data = list(map(attr.asdict, transactions))
+        df = pd.DataFrame(data, columns=['account_id', 'date', 'amount', 'name'])
+        df = df.sort_values(by=['date', 'name'],
+                            ascending=True,
+                            ignore_index=True)
+        # create accounts with their own df
+        for account_id, account_spec in spec['accounts'].items():
+            mask = (df['account_id'] == account_id)
+            account_df = df[mask].copy().reset_index(drop=True)
+            account = Account(account_id=account_id, name=account_spec['name'], balance=account_spec['balance'],
+                              transactions_df=account_df)
+            account_map[account_id] = account
 
         return cls(accounts=account_map, transactions=transactions, chart_spec=spec['chart_spec'])
 
