@@ -258,7 +258,7 @@ class TestProjector(unittest.TestCase):
         self.assertEqual(actual, expected)
 
     def test_get_transactions_data_frame(self):
-        spec = FixtureHelper.get_yaml('balance_projector.yml')
+        spec = FixtureHelper.get_spec_fixture()
         projector = Projector.from_spec(spec)
         checking_df = projector.get_account('checking').generate_transactions_data_frame()
         taxable_df = projector.get_account('taxable_brokerage').generate_transactions_data_frame()

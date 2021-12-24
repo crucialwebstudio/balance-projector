@@ -3,14 +3,18 @@ import yaml
 import pprint
 
 
+def get_root_path():
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+
+
 class FixtureHelper:
     def __init__(self):
         pass
 
     @classmethod
-    def get_yaml(cls, filename):
-        dir_path = os.path.dirname(os.path.realpath(__file__))
-        with open(f"{dir_path}/fixtures/{filename}", "r") as stream:
+    def get_spec_fixture(cls):
+        root_path = get_root_path()
+        with open(f"{root_path}/balance-projector.dist.yml", "r") as stream:
             return yaml.safe_load(stream)
 
 
