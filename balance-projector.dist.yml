@@ -16,7 +16,7 @@ accounts:
           day_of_month: null       # int|null: 1-31
         transfer: null # dict|null: Transfer spec. Required when type: 'transfer', null otherwise.
         #  direction: to # str: to|from
-        #  account_id: savings # string: account_id for the transfer
+        #  account_id: savings # str: account_id for the transfer
       freedom_fund:
         name: Freedom Fund
         amount: 100.00
