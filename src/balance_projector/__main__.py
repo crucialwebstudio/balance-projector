@@ -10,7 +10,10 @@ from .dash_app import create_app
 
 def get_yaml():
     dir_path = os.getcwd()
-    with open(f"{dir_path}/balance-projector.yml", "r") as stream:
+    dist_file = f"{dir_path}/balance-projector.dist.yml"
+    user_file = f"{dir_path}/balance-projector.yml"
+    spec_file = user_file if os.path.exists(user_file) else dist_file
+    with open(spec_file, "r") as stream:
         return yaml.safe_load(stream)
 
 
