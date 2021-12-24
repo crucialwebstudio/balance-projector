@@ -333,8 +333,8 @@ class TestProjector(unittest.TestCase):
     def test_get_transactions_data_frame(self):
         spec = FixtureHelper.get_spec_fixture()
         projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
-        checking_df = projector.get_account('checking').generate_transactions_data_frame()
-        taxable_df = projector.get_account('taxable_brokerage').generate_transactions_data_frame()
+        checking_df = projector.get_account('checking').transactions_df
+        taxable_df = projector.get_account('taxable_brokerage').transactions_df
         # DebugHelper.pprint(checking_df)
 
         """
