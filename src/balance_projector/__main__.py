@@ -4,7 +4,6 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 import click
 import yaml
-from tabulate import tabulate
 from .projector import Projector, DATE_FORMAT
 from .dash_app import create_app
 
@@ -18,21 +17,6 @@ def get_yaml():
 @click.group()
 def cli():
     pass
-
-
-@cli.command(help='Print running balance')
-@click.option('--account-id', type=click.INT, required=True, help='Account Id to project.')
-@click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
-              default=str(date.today()), help='Start date.')
-@click.option('--end-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
-              default=str(date.today() + relativedelta(years=1)), help='End date.')
-def project(account_id, start_date, end_date):
-    spec = get_yaml()
-    projector = Projector.from_spec(spec)
-    account = projector.get_account(account_id)
-    df = account.get_running_balance(start_date.strftime(DATE_FORMAT), end_date.strftime(DATE_FORMAT))
-    headers = ['Account ID', 'Date', 'Amount', 'Name', 'Balance']
-    click.echo(tabulate(df.to_numpy(), headers=headers))
 
 
 @cli.command(help='Run the dash app')
