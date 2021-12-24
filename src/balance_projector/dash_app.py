@@ -34,7 +34,7 @@ def create_app(*charts):
                 fig = dash_table.DataTable(
                     columns=[
                         dict(name='Date', id='Date', type='datetime'),
-                        # Unfortunately there is no foratting on datetime types.
+                        # Unfortunately there is no formatting on datetime types.
                         # https://community.plotly.com/t/is-it-any-way-to-set-format-of-date-time-in-datatable/29514
                         # https://dash.plotly.com/datatable/typing
                         dict(name='Description', id='Description'),
