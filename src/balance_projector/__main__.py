@@ -1,11 +1,11 @@
 # https://codeburst.io/building-beautiful-command-line-interfaces-with-python-26c7e1bb54df
-import click
 import os
+from datetime import date
+from dateutil.relativedelta import relativedelta
+import click
 import yaml
-from tabulate import tabulate
-from .projector import Projector
-
-DATE_FORMAT = '%Y-%m-%d'
+from .projector import Projector, DATE_FORMAT
+from .dash_app import create_app
 
 
 def get_yaml():
@@ -19,30 +19,17 @@ def cli():
     pass
 
 
-@cli.command(
-    help='Project balances',
-    short_help='Project account balances into the future.'
-)
-@click.option('--account-id', type=click.INT, required=True, help='Account Id to project.')
-@click.option('--starting-balance', type=click.FLOAT, required=True, help='Starting balance of the account.')
-@click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True, help='Start date.')
-@click.option('--end-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True, help='End date.')
-def project(account_id, starting_balance, start_date, end_date):
+@cli.command(help='Run the dash app')
+@click.option('--start-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
+              default=str(date.today()), help='Start date.')
+@click.option('--end-date', type=click.DateTime(formats=[DATE_FORMAT]), required=True,
+              default=str(date.today() + relativedelta(years=1)), help='End date.')
+def dash(start_date, end_date):
     spec = get_yaml()
     projector = Projector.from_spec(spec)
-    balances = projector.project(account_id, starting_balance,
-                                 start_date.strftime(DATE_FORMAT),
-                                 end_date.strftime(DATE_FORMAT))
-    headers = ['Date', 'Name', 'Amount', 'Balance']
-    table_data = [
-        [
-            b.transaction.date.strftime(DATE_FORMAT),
-            b.transaction.name,
-            b.transaction.amount,
-            b.balance
-        ] for b in balances
-    ]
-    click.echo(tabulate(table_data, headers=headers))
+    charts = projector.get_charts(start_date, end_date)
+    app = create_app(*charts)
+    app.run_server(debug=True)
 
 
 if __name__ == '__main__':

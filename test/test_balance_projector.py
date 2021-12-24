@@ -1,9 +1,10 @@
+import datetime
 import unittest
 from parameterized import parameterized
 from test.helpers import FixtureHelper, DebugHelper
-import datetime
-from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector, \
-    RunningBalance
+import pandas as pd
+import numpy as np
+from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
 
 
 class TestProjector(unittest.TestCase):
@@ -133,8 +134,8 @@ class TestProjector(unittest.TestCase):
         (
                 "bi_weekly_transfer",
                 {
-                    'account_id': 1,
-                    'name':       'Roth IRA',
+                    'account_id': 'checking',
+                    'name':       'Savings',
                     'amount':     250.00,
                     'type':       'transfer',
                     'date_spec':  {
@@ -147,49 +148,64 @@ class TestProjector(unittest.TestCase):
                     },
                     'transfer':   {
                         'direction':  'to',
-                        'account_id': 2
+                        'account_id': 'savings'
                     }
                 },
                 [
-                    Transaction(account_id=1, date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 1, 14, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 1, 28, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 2, 11, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 2, 11, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 2, 25, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 2, 25, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 3, 11, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 3, 11, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 3, 25, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 3, 25, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 4, 8, 0, 0), amount=-250.0, name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 4, 8, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 4, 22, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 4, 22, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 6, 0, 0), amount=-250.0, name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 5, 6, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 20, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 5, 20, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 6, 3, 0, 0), amount=-250.0, name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 6, 3, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 6, 17, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 6, 17, 0, 0), amount=250.0, name='Roth IRA')
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 1, 14, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 1, 28, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 2, 11, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 2, 11, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 2, 25, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 2, 25, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 3, 11, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 3, 11, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 3, 25, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 3, 25, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 4, 8, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 4, 8, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 4, 22, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 4, 22, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 5, 6, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 5, 6, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 5, 20, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 5, 20, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 6, 3, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 6, 3, 0, 0), amount=250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                                date=datetime.datetime(2022, 6, 17, 0, 0), amount=-250.0, name='Savings'),
+                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
+                                date=datetime.datetime(2022, 6, 17, 0, 0), amount=250.0, name='Savings')
                 ]
         ),
         (
                 "one_time_credit",
                 {
-                    'account_id': 1,
+                    'account_id': 'checking',
                     'name':       'Craigslist Sale',
                     'amount':     500.00,
                     'type':       'income',
@@ -204,14 +220,14 @@ class TestProjector(unittest.TestCase):
                     'transfer':   None
                 },
                 [
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 15, 0, 0), amount=500.00,
-                                name='Craigslist Sale')
+                    Transaction(transaction_id='one_time_credit', account_id='checking',
+                                date=datetime.datetime(2022, 5, 15, 0, 0), amount=500.00, name='Craigslist Sale')
                 ]
         ),
         (
                 "one_time_debit",
                 {
-                    'account_id': 1,
+                    'account_id': 'checking',
                     'name':       'Mountain Bike',
                     'amount':     1299.99,
                     'type':       'expense',
@@ -226,59 +242,78 @@ class TestProjector(unittest.TestCase):
                     'transfer':   None
                 },
                 [
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 15, 0, 0), amount=-1299.99,
-                                name='Mountain Bike')
+                    Transaction(transaction_id='one_time_debit', account_id='checking',
+                                date=datetime.datetime(2022, 5, 15, 0, 0), amount=-1299.99, name='Mountain Bike')
                 ]
         )
     ])
-    def test_create_transactions(self, name, param, expected):
+    def test_create_transactions(self, test_name, param, expected):
         transfer = None if param['transfer'] is None else Transfer(direction=param['transfer']['direction'],
                                                                    account_id=param['transfer']['account_id'])
-        tr = ScheduledTransaction(account_id=param['account_id'], name=param['name'], amount=param['amount'],
+        tr = ScheduledTransaction(transaction_id=test_name, account_id=param['account_id'], name=param['name'],
+                                  amount=param['amount'],
                                   type=param['type'], date_spec=DateSpec.from_spec(param['date_spec']),
                                   transfer=transfer)
         actual = tr.generate_transactions()
         self.assertEqual(actual, expected)
 
-    def test_projector(self):
+    def test_get_transactions_data_frame(self):
         spec = FixtureHelper.get_yaml('balance_projector.yml')
         projector = Projector.from_spec(spec)
-        actual = projector.project(1, 2000.00, '2021-11-01', '2021-12-31')
-        # DebugHelper.pprint(actual)
+        checking_df = projector.get_account('checking').generate_transactions_data_frame()
+        taxable_df = projector.get_account('taxable_brokerage').generate_transactions_data_frame()
+        # DebugHelper.pprint(checking_df)
 
-        expected = [
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 5, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=4500.0),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 5, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=4277.78),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 19, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=6777.78),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 19, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=6555.5599999999995),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 3, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=9055.56),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 3, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=8833.34),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 17, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=11333.34),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 17, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=11111.12),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 31, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=13611.12),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 31, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=13388.900000000001)
-        ]
-        self.assertEqual(actual, expected)
+        """
+        Spot-check some rows
+        """
+        mask = ((checking_df['date'] > '2022-02-01') & (checking_df['date'] < '2022-02-28'))
+        t = checking_df[mask]
+        # DebugHelper.pprint(t)
+        np.testing.assert_array_equal(
+            t.to_numpy(),
+            pd.DataFrame(
+                [
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -100.00,
+                        'name':       'Freedom Fund'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 2500.00,
+                        'name':       'Paycheck'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -100.00,
+                        'name':       'Freedom Fund'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 2500.00,
+                        'name':       'Paycheck'
+                    }
+                ]
+            ).to_numpy()
+        )
+
+        mask = ((taxable_df['date'] > '2022-02-01') & (taxable_df['date'] < '2022-02-28'))
+        t = taxable_df[mask]
+        # DebugHelper.pprint(t)
+        np.testing.assert_array_equal(
+            t.to_numpy(),
+            pd.DataFrame(
+                [
+                    {
+                        'account_id': 'taxable_brokerage', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0),
+                        'amount':     100.00,
+                        'name':       'Freedom Fund'
+                    },
+                    {
+                        'account_id': 'taxable_brokerage', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0),
+                        'amount':     100.00,
+                        'name':       'Freedom Fund'
+                    }
+                ]
+            ).to_numpy()
+        )
 
 
 if __name__ == "__main__":

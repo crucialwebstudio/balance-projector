@@ -1,7 +1,13 @@
+import attr
+import pandas as pd
 from datetime import datetime
 import dateutil.rrule as dr
 import dateutil.parser as dp
-import attr
+from .exceptions import AccountNotFoundException
+
+pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
+
+DATE_FORMAT = '%Y-%m-%d'
 
 frequency_map = {
     'daily':   dr.DAILY,
@@ -75,7 +81,8 @@ class DateSpec:
 
 @attr.define(kw_only=True)
 class Transaction:
-    account_id: int
+    transaction_id: str
+    account_id: str
     date: str
     amount: float
     name: str
@@ -88,7 +95,58 @@ class Transfer:
 
 
 @attr.define(kw_only=True)
+class Account:
+    account_id: str = attr.ib()
+    name: str = attr.ib()
+    balance: float = attr.ib()
+    transactions: list = attr.ib(factory=list)
+
+    @classmethod
+    def from_spec(cls, account_id, spec):
+        return cls(account_id=account_id, name=spec['name'], balance=spec['balance'])
+
+    def add_transaction(self, transaction):
+        if transaction.account_id != self.account_id:
+            raise Exception('Invalid account id')
+        self.transactions.append(transaction)
+
+    def generate_transactions_data_frame(self):
+        data = list(map(attr.asdict, self.transactions))
+        df = pd.DataFrame(data, columns=['account_id', 'date', 'amount', 'name'])
+        df = df.sort_values(by=['date', 'name'],
+                            ascending=True,
+                            ignore_index=True)
+        return df
+
+    def get_running_balance(self, start_date, end_date):
+        trans_df = self.generate_transactions_data_frame()
+        # filter transactions
+        start = dp.parse(start_date)
+        end = dp.parse(end_date)
+        mask = ((trans_df['date'] >= start) & (trans_df['date'] <= end))
+        filtered = trans_df[mask]
+        return self.apply_running_balance(self.balance, filtered)
+
+    def get_running_balance_grouped(self, start_date, end_date):
+        trans_df = self.get_running_balance(start_date, end_date)
+        # create new column with "transaction: amount" string
+        trans_df['amt_desc'] = trans_df['amount'].astype(str).str.cat(trans_df['name'], sep=': ')
+        # group by date
+        df_date_group = trans_df.groupby('date').agg({
+            'amt_desc': '<br>'.join,
+            'amount':   'sum'
+        })
+        return self.apply_running_balance(self.balance, df_date_group)
+
+    @classmethod
+    def apply_running_balance(cls, starting_balance, trans_df):
+        trans_df['balance'] = starting_balance + trans_df['amount'].cumsum()
+        return trans_df
+
+
+@attr.define(kw_only=True)
 class ScheduledTransaction:
+    transaction_id: str
     account_id: int
     name: str
     amount: float
@@ -124,89 +182,86 @@ class ScheduledTransaction:
 
         # debit sending account
         transactions.append(
-            Transaction(account_id=sending_account_id, date=date, amount=-abs(self.amount), name=self.name)
+            Transaction(transaction_id=self.transaction_id, account_id=sending_account_id, date=date, amount=-abs(self.amount), name=self.name)
         )
         # credit receiving account
         transactions.append(
-            Transaction(account_id=receiving_account_id, date=date, amount=abs(self.amount), name=self.name)
+            Transaction(transaction_id=self.transaction_id, account_id=receiving_account_id, date=date, amount=abs(self.amount), name=self.name)
         )
 
         return transactions
 
     def create_credit(self, date):
-        return [Transaction(account_id=self.account_id, date=date, amount=abs(self.amount), name=self.name)]
+        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date, amount=abs(self.amount), name=self.name)]
 
     def create_debit(self, date):
-        return [Transaction(account_id=self.account_id, date=date, amount=-abs(self.amount), name=self.name)]
+        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date, amount=-abs(self.amount), name=self.name)]
 
 
 @attr.define(kw_only=True)
-class RunningBalance:
-    transaction: Transaction
-    balance: float
+class Chart:
+    name: str = attr.ib()
+    type: str = attr.ib()
+    accounts: list = attr.ib()
 
 
 @attr.define(kw_only=True)
 class Projector:
-    scheduled_transactions = attr.ib(factory=list)
-    transaction_map = attr.ib()
-
-    @transaction_map.default
-    def default_transaction_map(self):
-        return {}
+    accounts: dict = attr.ib()
+    transactions: list = attr.ib()
+    chart_spec: dict = attr.ib()
 
     @classmethod
     def from_spec(cls, spec):
-        scheduled_transactions = []
-        for param in spec['scheduled_transactions']:
-            date_spec = DateSpec.from_spec(param['date_spec'])
-            transfer = None if param['transfer'] is None else Transfer(direction=param['transfer']['direction'],
-                                                                       account_id=param['transfer']['account_id'])
-            st = ScheduledTransaction(account_id=param['account_id'], name=param['name'], amount=param['amount'],
-                                      type=param['type'], date_spec=date_spec, transfer=transfer)
+        account_map = {}
+        transactions = []
+        for account_id, account_spec in spec['accounts'].items():
+            account = Account.from_spec(account_id, account_spec)
+            account_map[account.account_id] = account
+            if account_spec['scheduled_transactions']:
+                for trans_id, trans in account_spec['scheduled_transactions'].items():
+                    transfer = None if trans['transfer'] is None else Transfer(direction=trans['transfer']['direction'],
+                                                                               account_id=trans['transfer'][
+                                                                                   'account_id'])
+                    st = ScheduledTransaction(transaction_id=trans_id, account_id=account_id, name=trans['name'],
+                                              amount=trans['amount'], type=trans['type'],
+                                              date_spec=DateSpec.from_spec(trans['date_spec']), transfer=transfer)
 
-            scheduled_transactions.append(st)
+                    """
+                    NOTE: Due to transfers, a ScheduledTransaction can generate a Transaction for any other account.
+                    # So transactions generated by st.generate_transactions() MAY not belong to the account in the 
+                    # current iteration.
+                    """
+                    transactions.extend(st.generate_transactions())
 
-        return cls(scheduled_transactions=scheduled_transactions)
-
-    def get_transaction_map(self):
-        if len(self.transaction_map) > 0:
-            return self.transaction_map
-
-        for st in self.scheduled_transactions:
-            self.group_transactions(st.generate_transactions())
-
-        return self.transaction_map
-
-    def group_transactions(self, transactions):
-        for trans in transactions:
-            if self.transaction_map.get(trans.account_id, None) is None:
-                self.transaction_map[trans.account_id] = [
-                    trans
-                ]
-            else:
-                self.transaction_map[trans.account_id].append(trans)
-
-    def project(self, account_id, starting_balance, start_date, end_date):
-        # initialize list of balances to return
-        balances = []
-
-        # initialize current balance
-        current_balance = starting_balance
-
-        start = dp.parse(start_date)
-        end = dp.parse(end_date)
-
-        # get transactions for this account
-        transactions = self.get_transaction_map().get(account_id, [])
-
-        # sort transactions by date
-        transactions.sort(key=lambda x: x.date)
-
+        # one last iteration to add transactions to the account
         for t in transactions:
-            if start <= t.date <= end:
-                # apply transaction to current balance
-                current_balance = current_balance + t.amount
-                balances.append(RunningBalance(transaction=t, balance=current_balance))
+            account = account_map.get(t.account_id, None)
+            if account is None:
+                raise AccountNotFoundException(
+                    f'Account not found for transaction: account_id: {t.account_id}, transaction_id: {t.transaction_id}')
+            account.add_transaction(t)
 
-        return balances
+        return cls(accounts=account_map, transactions=transactions, chart_spec=spec['chart_spec'])
+
+    def get_account(self, account_id):
+        account = self.accounts.get(account_id, None)
+        if account is None:
+            raise AccountNotFoundException(f'account not found: {account_id}')
+        return account
+
+    def get_charts(self, start_date, end_date):
+        charts = []
+        for chart in self.chart_spec:
+            accounts = list(
+                map(
+                    lambda a: dict(
+                        name=self.get_account(a).name,
+                        df=self.get_account(a).get_running_balance_grouped(
+                            start_date.strftime(DATE_FORMAT),
+                            end_date.strftime(DATE_FORMAT)
+                        )), chart['account_ids']
+                )
+            )
+            charts.append(Chart(name=chart['name'], type=chart['type'], accounts=accounts))
+        return charts
