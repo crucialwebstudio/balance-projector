@@ -54,8 +54,14 @@ class DateSpec:
 
         # Dates from spec could (more likely as time progresses) generate dates we don't care about.
         # Here we set the max `until` argument for the rrule.
-        spec_end_date = dp.parse(self.end_date)
-        rrule_end = end_date if spec_end_date > end_date else spec_end_date
+        if self.end_date is None:
+            # self.end_date from the spec could be None to define infinite dates.
+            # There has to be a limit, so substitute None with end_date argument.
+            rrule_end = end_date
+        else:
+            # Substitute if spec_end_date > end_date
+            spec_end_date = dp.parse(self.end_date)
+            rrule_end = end_date if spec_end_date > end_date else spec_end_date
 
         """
         Specify "last day of month" when self.day_of_month would exclude certain months.
