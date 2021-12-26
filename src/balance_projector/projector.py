@@ -1,9 +1,10 @@
+from typing import Union
 import attr
 import pandas as pd
 from datetime import datetime
 import dateutil.rrule as dr
 import dateutil.parser as dp
-from .exceptions import AccountNotFoundException
+from .exceptions import AccountNotFoundException, OutOfBoundsException
 
 pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
 
@@ -118,14 +119,82 @@ class Transfer:
 class Account:
     account_id: str = attr.ib()
     name: str = attr.ib()
+    start_date: str = attr.ib()
     balance: float = attr.ib()
-    transactions_df: pd.DataFrame = attr.ib()
+    transactions: list = attr.ib(factory=list)
+    transactions_df: Union[pd.DataFrame, None] = attr.ib()
+
+    @transactions_df.default
+    def _default_transactions_df(self):
+        return None
+
+    def add_transactions(self, transactions):
+        for t in transactions:
+            self.add_transaction(t)
+
+    def add_transaction(self, transaction):
+        """
+        Add a transaction to the Account
+
+        :param transaction: Transaction
+        :return:
+        """
+        if transaction.account_id != self.account_id:
+            raise ValueError(f'Expected account id: {self.account_id} Received: {transaction.account_id}')
+        self.transactions_df = None  # flip to None so it gets rebuilt on the next request
+        self.transactions.append(transaction)
+
+    def get_transactions_df(self):
+        """
+        Get master transactions_df
+
+        :return: pd.DataFrame
+        """
+        if self.transactions_df is None:
+            data = list(map(attr.asdict, self.transactions))
+            df = pd.DataFrame(data, columns=['account_id', 'date', 'amount', 'name'])
+            df = df.sort_values(by=['date', 'name'],
+                                ascending=True,
+                                ignore_index=True)
+            self.transactions_df = df
+        return self.transactions_df
+
+    def get_balance(self, date):
+        """
+        Get balance for a date
+
+        :param date: str
+        :return: float
+        """
+        target_date = dp.parse(date)
+        account_start = dp.parse(self.start_date)
+        df = self.get_running_balance_grouped()
+        if target_date < account_start:
+            raise OutOfBoundsException(f'date {target_date} before start_date of the account: {account_start}')
+        if len(df.index) == 0:
+            return self.balance
+        sub_df = df[df.index.to_pydatetime() <= target_date]
+        if len(sub_df.index) == 0:
+            return self.balance
+        last_row_df = sub_df.iloc[-1:]
+        balance = last_row_df.iloc[0]['balance']
+        return balance
 
     def get_running_balance(self):
-        trans_df = self.transactions_df.copy()
+        """
+        Get running balance df with transactions as separate row
+
+        :return: pd.Datadrame
+        """
+        trans_df = self.get_transactions_df().copy()
         return self.apply_running_balance(self.balance, trans_df)
 
     def get_running_balance_grouped(self):
+        """
+        Get running balance df with transactions grouped and indexed by date
+
+        :return: pd.DataFrame
+        """
         trans_df = self.get_running_balance()
         # create new column with "transaction: amount" string
         trans_df['amt_desc'] = trans_df['amount'].astype(str).str.cat(trans_df['name'], sep=': ')
@@ -217,6 +286,8 @@ class Projector:
         account_map = {}
         transactions = []
         for account_id, account_spec in spec['accounts'].items():
+            account_map[account_id] = Account(account_id=account_id, name=account_spec['name'],
+                                              start_date=start_date, balance=account_spec['balance'])
             if account_spec['scheduled_transactions']:
                 for trans_id, trans in account_spec['scheduled_transactions'].items():
                     transfer = None if trans['transfer'] is None else Transfer(direction=trans['transfer']['direction'],
@@ -232,21 +303,15 @@ class Projector:
                     # current iteration.
                     """
                     transactions.extend(st.generate_transactions(start_date, end_date))
-        # convert transactions into a dataframe
-        data = list(map(attr.asdict, transactions))
-        df = pd.DataFrame(data, columns=['account_id', 'date', 'amount', 'name'])
-        df = df.sort_values(by=['date', 'name'],
-                            ascending=True,
-                            ignore_index=True)
-        # create accounts with their own df
-        for account_id, account_spec in spec['accounts'].items():
-            mask = (df['account_id'] == account_id)
-            account_df = df[mask].copy().reset_index(drop=True)
-            account = Account(account_id=account_id, name=account_spec['name'], balance=account_spec['balance'],
-                              transactions_df=account_df)
-            account_map[account_id] = account
 
-        return cls(accounts=account_map, transactions=transactions, chart_spec=spec['chart_spec'])
+        # one last iteration to add transactions to the account
+        for t in transactions:
+            account = account_map.get(t.account_id, None)
+            if account is None:
+                raise AccountNotFoundException(
+                    f'Account not found for transaction: account_id: {t.account_id}, transaction_id: {t.transaction_id}')
+            account.add_transaction(t)
+        return Projector(accounts=account_map, transactions=transactions, chart_spec=spec['chart_spec'])
 
     def get_account(self, account_id):
         account = self.accounts.get(account_id, None)

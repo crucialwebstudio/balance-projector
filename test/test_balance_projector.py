@@ -4,7 +4,74 @@ from parameterized import parameterized
 from test.helpers import FixtureHelper, DebugHelper
 import pandas as pd
 import numpy as np
-from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
+from balance_projector.projector import Account, ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
+from balance_projector.exceptions import OutOfBoundsException
+
+
+class TestAccount(unittest.TestCase):
+    def test_balance_date_out_of_range(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+        ])
+        # before start_date of the account
+        self.assertRaises(OutOfBoundsException, account.get_balance, '2021-12-31')
+
+    def test_no_transactions_returns_current_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        self.assertEqual(account.get_balance('2022-01-14'), 1000)
+
+    def test_no_transactions_lt_balance_date_returns_current_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 1000)
+
+    def test_get_balance_for_date(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 1000)
+        self.assertEqual(account.get_balance('2022-01-14'), 750)
+        self.assertEqual(account.get_balance('2022-01-15'), 750)
+        self.assertEqual(account.get_balance('2022-01-16'), 750)
+        self.assertEqual(account.get_balance('2022-01-28'), 500)
+        self.assertEqual(account.get_balance('2025-01-01'), 500)
+
+    def test_add_previous_transaction_updates_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=7500)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 7500)
+        self.assertEqual(account.get_balance('2022-01-14'), 7250)
+        self.assertEqual(account.get_balance('2022-01-15'), 7250)
+        self.assertEqual(account.get_balance('2022-01-16'), 7250)
+        self.assertEqual(account.get_balance('2022-01-28'), 7000)
+        self.assertEqual(account.get_balance('2025-01-01'), 7000)
+        account.add_transaction(
+            Transaction(transaction_id='mountain_bike', account_id='checking',
+                        date=datetime.datetime(2022, 1, 18, 0, 0), amount=-1000, name='Mountain Bike'))
+        self.assertEqual(account.get_balance('2022-01-05'), 7500)
+        self.assertEqual(account.get_balance('2022-01-14'), 7250)
+        self.assertEqual(account.get_balance('2022-01-15'), 7250)
+        self.assertEqual(account.get_balance('2022-01-16'), 7250)
+        self.assertEqual(account.get_balance('2022-01-28'), 6000)
+        self.assertEqual(account.get_balance('2025-01-01'), 6000)
 
 
 class TestDates(unittest.TestCase):
@@ -333,8 +400,8 @@ class TestProjector(unittest.TestCase):
     def test_get_transactions_data_frame(self):
         spec = FixtureHelper.get_spec_fixture()
         projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
-        checking_df = projector.get_account('checking').transactions_df
-        taxable_df = projector.get_account('taxable_brokerage').transactions_df
+        checking_df = projector.get_account('checking').get_transactions_df()
+        taxable_df = projector.get_account('taxable_brokerage').get_transactions_df()
         # DebugHelper.pprint(checking_df)
 
         """
