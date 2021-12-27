@@ -224,6 +224,11 @@ class AccountMap:
             raise AccountNotFoundException(f'account not found: {account_id}')
         return account
 
+    def add_transactions(self, transactions):
+        for t in transactions:
+            account = self.get_account(t.account_id)
+            account.add_transaction(t)
+
 
 @attr.define(kw_only=True)
 class ScheduledTransaction:
@@ -320,15 +325,8 @@ class Projector:
                         current iteration.
                         """
                         simple_trans.extend(st.generate_transactions(start_date, end_date))
-        Projector.apply_transactions(accounts, simple_trans)
+        accounts.add_transactions(simple_trans)
         return Projector(spec=spec, start_date=start_date, end_date=end_date, accounts=accounts)
-
-    @classmethod
-    def apply_transactions(cls, accounts, transactions):
-        # add transactions to the account
-        for t in transactions:
-            account = accounts.get_account(t.account_id)
-            account.add_transaction(t)
 
     def get_account(self, account_id):
         return self.accounts.get_account(account_id)
