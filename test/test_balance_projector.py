@@ -277,9 +277,7 @@ class TestProjector(unittest.TestCase):
         taxable_df = projector.get_account('taxable_brokerage').get_transactions_df()
         # DebugHelper.pprint(checking_df)
 
-        """
-        Spot-check some rows
-        """
+        # Spot-check some rows
         mask = ((checking_df['date'] > '2022-02-01') & (checking_df['date'] < '2022-02-28'))
         t = checking_df[mask]
         # DebugHelper.pprint(t)

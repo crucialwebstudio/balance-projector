@@ -17,6 +17,22 @@ accounts:
         transfer: null # dict|null: Transfer spec. Required when type: 'transfer', null otherwise.
         #  direction: to # str: to|from
         #  account_id: savings # str: account_id for the transfer
+      cc_pmt:
+        name: Credit Card Pmt
+        amount:
+          cc_balance:
+            account_id: credit_card
+        type: transfer
+        date_spec:
+          start_date: '2021-11-01'
+          end_date: null
+          frequency: monthly
+          interval: 1
+          day_of_week: null
+          day_of_month: 1
+        transfer:
+          direction: to
+          account_id: taxable_brokerage
       freedom_fund:
         name: Freedom Fund
         amount: 100.00
