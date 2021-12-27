@@ -260,6 +260,8 @@ class ScheduledTransaction:
         :return: list
         """
         transactions = []
+        if type(self.amount) == dict:
+            return transactions
         dates = self.date_spec.generate_dates(start_date, end_date)
         for d in dates:
             if self.type == 'transfer':
@@ -317,22 +319,19 @@ class Projector:
     @classmethod
     def from_spec(cls, spec, start_date, end_date):
         accounts = AccountMap()
-        simple_trans = []
-        amt_bal_trans = []
         for account_id, account_spec in spec['accounts'].items():
             accounts.add_account(Account(account_id=account_id, name=account_spec['name'],
                                          start_date=start_date, balance=account_spec['balance']))
+        Projector.load_transactions(accounts, start_date, end_date, spec)
+        return Projector(spec=spec, start_date=start_date, end_date=end_date, accounts=accounts)
+
+    @classmethod
+    def load_transactions(cls, accounts, start_date, end_date, spec):
+        for account_id, account_spec in spec['accounts'].items():
             if account_spec['scheduled_transactions']:
                 for trans_id, trans in account_spec['scheduled_transactions'].items():
-                    amount = trans['amount']
-                    if type(amount) == dict:
-                        # special instructions for amount
-                        continue
-                    else:
-                        st = ScheduledTransaction.from_spec(account_id, trans_id, trans)
-                        simple_trans.extend(st.generate_transactions(start_date, end_date))
-        accounts.add_transactions(simple_trans)
-        return Projector(spec=spec, start_date=start_date, end_date=end_date, accounts=accounts)
+                    st = ScheduledTransaction.from_spec(account_id, trans_id, trans)
+                    accounts.add_transactions(st.generate_transactions(start_date, end_date))
 
     def get_account(self, account_id):
         return self.accounts.get_account(account_id)
