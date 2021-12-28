@@ -102,11 +102,27 @@ class DateSpec:
 
 @attr.define(kw_only=True)
 class Transaction:
-    transaction_id: str
-    account_id: str
-    date: str
-    amount: float
-    name: str
+    transaction_id: str = attr.ib()
+    account_id: str = attr.ib()
+    date: str = attr.ib()
+    amount: float = attr.ib()
+    name: str = attr.ib()
+
+
+@attr.define(kw_only=True)
+class CCTransaction(Transaction):
+    amount: CCBalanceAmount = attr.ib()
+
+
+@attr.define(kw_only=True)
+class CCBalanceAmount:
+    account_id: dict = attr.ib()
+    index: int = attr.ib()
+
+    @classmethod
+    def from_spec(cls, spec, index):
+        instructions = spec['cc_balance']
+        return CCBalanceAmount(account_id=instructions['account_id'], index=index)
 
 
 @attr.define(kw_only=True)
@@ -212,22 +228,59 @@ class Account:
 
 
 @attr.define(kw_only=True)
-class AccountMap:
+class Accounts:
     accounts: dict = attr.ib(factory=dict)
 
-    def add_account(self, account):
-        self.accounts[account.account_id] = account
+    @classmethod
+    def from_spec(cls, spec, start_date, end_date):
+        accounts = dict()
+        for account_id, account_spec in spec['accounts'].items():
+            accounts[account_id] = Account(account_id=account_id, name=account_spec['name'],
+                                           start_date=start_date, balance=account_spec['balance'])
+        return Accounts(accounts=accounts)
 
-    def get_account(self, account_id):
+    def get_account(self, account_id: str):
         account = self.accounts.get(account_id, None)
         if account is None:
             raise AccountNotFoundException(f'account not found: {account_id}')
         return account
 
-    def add_transactions(self, transactions):
-        for t in transactions:
+    def apply_scheduled_transactions(self, st: ScheduledTransactions):
+        # apply plain transactions
+        for t in st.plain:
             account = self.get_account(t.account_id)
             account.add_transaction(t)
+        # apply cc transactions
+        sorted_ccs = sorted(st.cc, key=lambda c: c.date)
+        for cc in sorted_ccs:
+            print(cc)
+
+
+@attr.define(kw_only=True)
+class ScheduledTransactions:
+    plain: list = attr.ib(factory=list)
+    cc: list = attr.ib(factory=list)
+
+    @classmethod
+    def from_spec(cls, spec, start_date, end_date):
+        transactions = []
+        for account_id, account_spec in spec['accounts'].items():
+            if account_spec['scheduled_transactions']:
+                for trans_id, trans in account_spec['scheduled_transactions'].items():
+                    st = ScheduledTransaction.from_spec(account_id, trans_id, trans)
+                    transactions.extend(st.generate_transactions(start_date, end_date))
+        plain = [t for t in transactions if isinstance(t, Transaction)]
+        cc = [t for t in transactions if isinstance(t, CCTransaction)]
+        return ScheduledTransactions(plain=plain, cc=cc)
+
+    def apply_transactions(self, accounts):
+        accounts.add_transactions(self.plain)
+        self.apply_cc_transactions()
+
+    def apply_cc_transactions(self):
+        self.cc.sort(key=lambda t: t.date)
+        for cc in self.cc:
+            print(cc)
 
 
 @attr.define(kw_only=True)
@@ -253,26 +306,27 @@ class ScheduledTransaction:
         """
         Generate transactions
 
-        Note that this process may generate transactions for any other account
+        This process may generate transactions for any other account
 
         :param start_date: str
         :param end_date: str
         :return: list
         """
         transactions = []
-        if type(self.amount) == dict:
-            return transactions
         dates = self.date_spec.generate_dates(start_date, end_date)
-        for d in dates:
+        for i, d in enumerate(dates):
+            if type(self.amount) == dict:
+                transactions.extend(self.create_cc_trans(i, d, self.amount))
+                continue
             if self.type == 'transfer':
-                transactions.extend(self.create_transfer(d))
+                transactions.extend(self.create_transfer(d, self.amount))
             if self.type == 'income':
-                transactions.extend(self.create_credit(d))
+                transactions.extend(self.create_credit(d, self.amount))
             if self.type == 'expense':
-                transactions.extend(self.create_debit(d))
+                transactions.extend(self.create_debit(d, self.amount))
         return transactions
 
-    def create_transfer(self, date):
+    def create_transfer(self, date, amount):
         transactions = []
         # determine sending and receiving account
         if self.transfer.direction == 'to':
@@ -281,25 +335,31 @@ class ScheduledTransaction:
         elif self.transfer.direction == 'from':
             sending_account_id = self.transfer.account_id
             receiving_account_id = self.account_id
+        else:
+            raise ValueError(f'Transfer direction must one of "to", "from". Received: {self.transfer.direction}')
         # debit sending account
         transactions.append(
             Transaction(transaction_id=self.transaction_id, account_id=sending_account_id, date=date,
-                        amount=-abs(self.amount), name=self.name)
+                        amount=-abs(amount), name=self.name)
         )
         # credit receiving account
         transactions.append(
             Transaction(transaction_id=self.transaction_id, account_id=receiving_account_id, date=date,
-                        amount=abs(self.amount), name=self.name)
+                        amount=abs(amount), name=self.name)
         )
         return transactions
 
-    def create_credit(self, date):
+    def create_credit(self, date, amount):
         return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
-                            amount=abs(self.amount), name=self.name)]
+                            amount=abs(amount), name=self.name)]
 
-    def create_debit(self, date):
+    def create_debit(self, date, amount):
         return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
-                            amount=-abs(self.amount), name=self.name)]
+                            amount=-abs(amount), name=self.name)]
+
+    def create_cc_trans(self, index, date, amount):
+        return [CCTransaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
+                              amount=CCBalanceAmount.from_spec(amount, index), name=self.name)]
 
 
 @attr.define(kw_only=True)
@@ -314,24 +374,13 @@ class Projector:
     spec: dict = attr.ib(factory=dict)
     start_date: str = attr.ib(factory=str)
     end_date: str = attr.ib(factory=str)
-    accounts: AccountMap = attr.ib()
+    accounts: Accounts = attr.ib()
 
     @classmethod
     def from_spec(cls, spec, start_date, end_date):
-        accounts = AccountMap()
-        for account_id, account_spec in spec['accounts'].items():
-            accounts.add_account(Account(account_id=account_id, name=account_spec['name'],
-                                         start_date=start_date, balance=account_spec['balance']))
-        Projector.load_transactions(accounts, start_date, end_date, spec)
+        accounts = Accounts.from_spec(spec, start_date, end_date)
+        accounts.apply_scheduled_transactions(ScheduledTransactions.from_spec(spec, start_date, end_date))
         return Projector(spec=spec, start_date=start_date, end_date=end_date, accounts=accounts)
-
-    @classmethod
-    def load_transactions(cls, accounts, start_date, end_date, spec):
-        for account_id, account_spec in spec['accounts'].items():
-            if account_spec['scheduled_transactions']:
-                for trans_id, trans in account_spec['scheduled_transactions'].items():
-                    st = ScheduledTransaction.from_spec(account_id, trans_id, trans)
-                    accounts.add_transactions(st.generate_transactions(start_date, end_date))
 
     def get_account(self, account_id):
         return self.accounts.get_account(account_id)
