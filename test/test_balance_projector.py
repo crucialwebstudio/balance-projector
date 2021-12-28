@@ -1,11 +1,16 @@
 import datetime
 import unittest
-from parameterized import parameterized
-from test.helpers import FixtureHelper, DebugHelper
-import pandas as pd
+
 import numpy as np
-from balance_projector.projector import Account, ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
+import pandas as pd
+from parameterized import parameterized
+
+from balance_projector.account import Account
+from balance_projector.datespec import DateSpec
 from balance_projector.exceptions import OutOfBoundsException
+from balance_projector.projector import Projector
+from balance_projector.transaction import Transaction
+from test.helpers import FixtureHelper
 
 
 class TestAccount(unittest.TestCase):
