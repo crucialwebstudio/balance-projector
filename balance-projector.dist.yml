@@ -1,5 +1,6 @@
 accounts:
   checking: # account_id: Unique ID to indentify the account.
+    type: checking
     name: Checking   # str: Name of the account.
     balance: 2043.15 # float: Current balance. May be positive or negative.
     scheduled_transactions:
@@ -48,18 +49,23 @@ accounts:
           direction: to
           account_id: taxable_brokerage
   savings:
+    type: savings
     name: Savings
     balance: 1000.00
     scheduled_transactions: null
   credit_card:
+    type: cc
     name: Credit Card
     balance: -649.32
+    stmt_balance: -300.15
     scheduled_transactions: null
   taxable_brokerage:
+    type: invest
     name: Brokerage Account
     balance: 32582.83
     scheduled_transactions: null
   401k:
+    type: invest
     name: 401k
     balance: 3652.17
     scheduled_transactions:

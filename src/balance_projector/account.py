@@ -4,7 +4,7 @@ import attr
 import dateutil.parser as dp
 import pandas as pd
 
-from .exceptions import AccountNotFoundException, OutOfBoundsException
+from .exceptions import InvalidAccountType, AccountNotFoundException, OutOfBoundsException
 from .transaction import ScheduledTransactions
 
 pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
@@ -107,6 +107,26 @@ class Account:
 
 
 @attr.define(kw_only=True)
+class CreditCardAccount(Account):
+    stmt_balance: float = attr.ib()
+
+
+@attr.define(kw_only=True)
+class AccountFactory:
+    @classmethod
+    def from_spec(cls, spec):
+        acct_type = spec['type']
+        if acct_type == 'cc':
+            return CreditCardAccount(account_id=spec['account_id'], name=spec['name'], start_date=spec['start_date'],
+                                     balance=spec['balance'], stmt_balance=spec['stmt_balance'])
+        elif acct_type in ['checking', 'savings', 'invest']:
+            return Account(account_id=spec['account_id'], name=spec['name'], start_date=spec['start_date'],
+                           balance=spec['balance'])
+        else:
+            raise InvalidAccountType(f'Account type not found: {acct_type}')
+
+
+@attr.define(kw_only=True)
 class Accounts:
     accounts: dict = attr.ib(factory=dict)
 
@@ -114,8 +134,9 @@ class Accounts:
     def from_spec(cls, spec, start_date, end_date):
         accounts = dict()
         for account_id, account_spec in spec['accounts'].items():
-            accounts[account_id] = Account(account_id=account_id, name=account_spec['name'],
-                                           start_date=start_date, balance=account_spec['balance'])
+            account_spec['account_id'] = account_id
+            account_spec['start_date'] = start_date
+            accounts[account_id] = AccountFactory.from_spec(account_spec)
         return Accounts(accounts=accounts)
 
     def get_account(self, account_id: str):
