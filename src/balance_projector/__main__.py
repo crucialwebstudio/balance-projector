@@ -4,8 +4,16 @@ from datetime import date
 from dateutil.relativedelta import relativedelta
 import click
 import yaml
-from .projector import Projector, DATE_FORMAT
+from .projector import Projector
+from .datespec import DATE_FORMAT
 from .dash_app import create_app
+
+
+def get_watch_files():
+    dir_path = os.getcwd()
+    dist_file = f"{dir_path}/balance-projector.dist.yml"
+    user_file = f"{dir_path}/balance-projector.yml"
+    return [dist_file, user_file]
 
 
 def get_yaml():
@@ -34,7 +42,7 @@ def dash(start_date, end_date):
                                     end_date.strftime(DATE_FORMAT))
     charts = projector.get_charts()
     app = create_app(*charts)
-    app.run_server(debug=True)
+    app.run_server(debug=True, extra_files=get_watch_files())
 
 
 if __name__ == '__main__':
