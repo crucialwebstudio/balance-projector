@@ -1,4 +1,5 @@
 from typing import Union
+from dateutil.relativedelta import relativedelta as drel
 
 import attr
 import dateutil.parser as dp
@@ -6,6 +7,7 @@ import pandas as pd
 
 from .exceptions import InvalidAccountType, AccountNotFoundException, OutOfBoundsException
 from .transaction import ScheduledTransactions
+from .datespec import DATE_FORMAT
 
 pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
 
@@ -79,7 +81,7 @@ class Account:
         """
         Get running balance df with transactions as separate row
 
-        :return: pd.Datadrame
+        :return: pd.DataFrame
         """
         trans_df = self.get_transactions_df().copy()
         return self.apply_running_balance(self.balance, trans_df)
@@ -109,6 +111,7 @@ class Account:
 @attr.define(kw_only=True)
 class CreditCardAccount(Account):
     stmt_balance: float = attr.ib()
+    stmt_close_dom: int = attr.ib()
 
 
 @attr.define(kw_only=True)
@@ -118,7 +121,8 @@ class AccountFactory:
         acct_type = spec['type']
         if acct_type == 'cc':
             return CreditCardAccount(account_id=spec['account_id'], name=spec['name'], start_date=spec['start_date'],
-                                     balance=spec['balance'], stmt_balance=spec['stmt_balance'])
+                                     balance=spec['balance'], stmt_balance=spec['stmt_balance'],
+                                     stmt_close_dom=spec['stmt_close_dom'])
         elif acct_type in ['checking', 'savings', 'invest']:
             return Account(account_id=spec['account_id'], name=spec['name'], start_date=spec['start_date'],
                            balance=spec['balance'])
@@ -139,7 +143,7 @@ class Accounts:
             accounts[account_id] = AccountFactory.from_spec(account_spec)
         return Accounts(accounts=accounts)
 
-    def get_account(self, account_id: str):
+    def get_account(self, account_id: str) -> Union[Account, CreditCardAccount]:
         account = self.accounts.get(account_id, None)
         if account is None:
             raise AccountNotFoundException(f'account not found: {account_id}')

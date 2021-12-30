@@ -18,9 +18,9 @@ class TestAccount(unittest.TestCase):
         account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
         account.add_transactions([
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
         ])
         # before start_date of the account
         self.assertRaises(OutOfBoundsException, account.get_balance, '2021-12-31')
@@ -33,9 +33,9 @@ class TestAccount(unittest.TestCase):
         account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
         account.add_transactions([
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
         ])
         self.assertEqual(account.get_balance('2022-01-05'), 1000)
 
@@ -43,9 +43,9 @@ class TestAccount(unittest.TestCase):
         account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
         account.add_transactions([
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
         ])
         self.assertEqual(account.get_balance('2022-01-05'), 1000)
         self.assertEqual(account.get_balance('2022-01-14'), 750)
@@ -58,9 +58,9 @@ class TestAccount(unittest.TestCase):
         account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=7500)
         account.add_transactions([
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
             Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings')
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
         ])
         self.assertEqual(account.get_balance('2022-01-05'), 7500)
         self.assertEqual(account.get_balance('2022-01-14'), 7250)
@@ -70,7 +70,7 @@ class TestAccount(unittest.TestCase):
         self.assertEqual(account.get_balance('2025-01-01'), 7000)
         account.add_transaction(
             Transaction(transaction_id='mountain_bike', account_id='checking',
-                        date=datetime.datetime(2022, 1, 18, 0, 0), amount=-1000, name='Mountain Bike'))
+                        date=datetime.datetime(2022, 1, 18, 0, 0), amount=-1000, name='Mountain Bike', type='transfer'))
         self.assertEqual(account.get_balance('2022-01-05'), 7500)
         self.assertEqual(account.get_balance('2022-01-14'), 7250)
         self.assertEqual(account.get_balance('2022-01-15'), 7250)

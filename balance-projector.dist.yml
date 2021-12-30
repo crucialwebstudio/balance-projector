@@ -16,7 +16,7 @@ accounts:
           day_of_week: fri         # str|null: mon|tue|wed|thu|fri|sat|sun
           day_of_month: null       # int|null: 1-31
         transfer: null # dict|null: Transfer spec. Required when type: 'transfer', null otherwise.
-        #  direction: to # str: to|from
+        #  direction: to       # str: to|from
         #  account_id: savings # str: account_id for the transfer
       cc_pmt:
         name: Credit Card Pmt
@@ -58,6 +58,7 @@ accounts:
     name: Credit Card
     balance: -649.32
     stmt_balance: -300.15
+    stmt_close_dom: 4
     scheduled_transactions: null
   taxable_brokerage:
     type: invest

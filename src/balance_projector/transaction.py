@@ -6,12 +6,19 @@ from .datespec import DateSpec
 
 
 @attr.define(kw_only=True)
+class Transfer:
+    direction: str
+    account_id: int
+
+
+@attr.define(kw_only=True)
 class Transaction:
     transaction_id: str = attr.ib()
     account_id: str = attr.ib()
     date: str = attr.ib()
     amount: float = attr.ib()
     name: str = attr.ib()
+    type: str = attr.ib()
 
 
 @attr.define(kw_only=True)
@@ -28,12 +35,7 @@ class CCBalanceAmount:
 @attr.define(kw_only=True)
 class CCTransaction(Transaction):
     amount: CCBalanceAmount = attr.ib()
-
-
-@attr.define(kw_only=True)
-class Transfer:
-    direction: str
-    account_id: int
+    transfer: Union[Transfer, None] = attr.ib()
 
 
 @attr.define(kw_only=True)
@@ -49,18 +51,9 @@ class ScheduledTransactions:
                 for trans_id, trans in account_spec['scheduled_transactions'].items():
                     st = ScheduledTransaction.from_spec(account_id, trans_id, trans)
                     transactions.extend(st.generate_transactions(start_date, end_date))
-        plain = [t for t in transactions if isinstance(t, Transaction)]
-        cc = [t for t in transactions if isinstance(t, CCTransaction)]
+        plain = [t for t in transactions if type(t).__name__ == 'Transaction']
+        cc = [t for t in transactions if type(t).__name__ == 'CCTransaction']
         return ScheduledTransactions(plain=plain, cc=cc)
-
-    def apply_transactions(self, accounts):
-        accounts.add_transactions(self.plain)
-        self.apply_cc_transactions()
-
-    def apply_cc_transactions(self):
-        self.cc.sort(key=lambda t: t.date)
-        for cc in self.cc:
-            print(cc)
 
 
 @attr.define(kw_only=True)
@@ -95,16 +88,18 @@ class ScheduledTransaction:
         transactions = []
         dates = self.date_spec.generate_dates(start_date, end_date)
         for i, d in enumerate(dates):
-            if type(self.amount) == dict:
-                transactions.extend(self.create_cc_trans(i, d, self.amount))
-                continue
-            if self.type == 'transfer':
-                transactions.extend(self.create_transfer(d, self.amount))
-            if self.type == 'income':
-                transactions.extend(self.create_credit(d, self.amount))
-            if self.type == 'expense':
-                transactions.extend(self.create_debit(d, self.amount))
+            transactions.extend(self.create_transaction(i, d, self.amount))
         return transactions
+
+    def create_transaction(self, index, date, amount):
+        if type(amount) == dict:
+            return self.create_cc_trans(index, date, amount)
+        if self.type == 'transfer':
+            return self.create_transfer(date, amount)
+        if self.type == 'income':
+            return self.create_credit(date, amount)
+        if self.type == 'expense':
+            return self.create_debit(date, amount)
 
     def create_transfer(self, date, amount):
         transactions = []
@@ -116,27 +111,27 @@ class ScheduledTransaction:
             sending_account_id = self.transfer.account_id
             receiving_account_id = self.account_id
         else:
-            raise ValueError(f'Transfer direction must one of "to", "from". Received: {self.transfer.direction}')
+            raise ValueError(f'Transfer direction must be one of "to", "from". Received: {self.transfer.direction}')
         # debit sending account
         transactions.append(
-            Transaction(transaction_id=self.transaction_id, account_id=sending_account_id, date=date,
+            Transaction(transaction_id=self.transaction_id, type=self.type, account_id=sending_account_id, date=date,
                         amount=-abs(amount), name=self.name)
         )
         # credit receiving account
         transactions.append(
-            Transaction(transaction_id=self.transaction_id, account_id=receiving_account_id, date=date,
+            Transaction(transaction_id=self.transaction_id, type=self.type, account_id=receiving_account_id, date=date,
                         amount=abs(amount), name=self.name)
         )
         return transactions
 
     def create_credit(self, date, amount):
-        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
+        return [Transaction(transaction_id=self.transaction_id, type=self.type, account_id=self.account_id, date=date,
                             amount=abs(amount), name=self.name)]
 
     def create_debit(self, date, amount):
-        return [Transaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
+        return [Transaction(transaction_id=self.transaction_id, type=self.type, account_id=self.account_id, date=date,
                             amount=-abs(amount), name=self.name)]
 
     def create_cc_trans(self, index, date, amount):
-        return [CCTransaction(transaction_id=self.transaction_id, account_id=self.account_id, date=date,
-                              amount=CCBalanceAmount.from_spec(amount, index), name=self.name)]
+        return [CCTransaction(transaction_id=self.transaction_id, type=self.type, account_id=self.account_id, date=date,
+                              amount=CCBalanceAmount.from_spec(amount, index), name=self.name, transfer=self.transfer)]
