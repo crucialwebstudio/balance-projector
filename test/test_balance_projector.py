@@ -10,7 +10,7 @@ from balance_projector.datespec import DateSpec
 from balance_projector.exceptions import OutOfBoundsException
 from balance_projector.projector import Projector
 from balance_projector.transaction import Transaction
-from test.helpers import FixtureHelper
+from test.helpers import FixtureHelper, DebugHelper
 
 
 class TestAccount(unittest.TestCase):
@@ -280,7 +280,7 @@ class TestProjector(unittest.TestCase):
         projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
         checking_df = projector.get_account('checking').get_transactions_df()
         taxable_df = projector.get_account('taxable_brokerage').get_transactions_df()
-        # DebugHelper.pprint(checking_df)
+        # DebugHelper.pprint(checking_df.to_string())
 
         # Spot-check some rows
         mask = ((checking_df['date'] > '2022-02-01') & (checking_df['date'] < '2022-02-28'))

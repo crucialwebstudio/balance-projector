@@ -33,7 +33,7 @@ accounts:
           day_of_month: 1
         transfer:
           direction: to
-          account_id: taxable_brokerage
+          account_id: credit_card
       freedom_fund:
         name: Freedom Fund
         amount: 100.00

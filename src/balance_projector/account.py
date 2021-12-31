@@ -1,5 +1,4 @@
 from typing import Union
-from dateutil.relativedelta import relativedelta as drel
 
 import attr
 import dateutil.parser as dp
@@ -7,7 +6,6 @@ import pandas as pd
 
 from .exceptions import InvalidAccountType, AccountNotFoundException, OutOfBoundsException
 from .transaction import ScheduledTransactions
-from .datespec import DATE_FORMAT
 
 pd.options.mode.chained_assignment = None  # no warning message and no exception is raised
 
@@ -149,12 +147,21 @@ class Accounts:
             raise AccountNotFoundException(f'account not found: {account_id}')
         return account
 
-    def apply_scheduled_transactions(self, st: ScheduledTransactions):
-        # apply plain transactions
-        for t in st.plain:
+    def add_transactions(self, transactions: list) -> None:
+        for t in transactions:
             account = self.get_account(t.account_id)
             account.add_transaction(t)
-        # apply cc transactions
-        sorted_ccs = sorted(st.cc, key=lambda c: c.date)
-        for cc in sorted_ccs:
-            print(cc)
+
+    def apply_scheduled_transactions(self, st: ScheduledTransactions):
+        # apply plain transactions
+        self.add_transactions(st.plain)
+        # Apply dynamic transactions: By sorting these by date and adding them sequentially,
+        # the dynamic balance will be calculated correctly as each DynamicTransaction is
+        # exchanged, and subsequent transactions are added to the account.
+        dynamic = sorted(st.dynamic, key=lambda d: d.date)
+        for dt in dynamic:
+            print(dt)
+            transactions = dt.exchange(self)
+            print(transactions)
+            self.add_transactions(transactions)
+
