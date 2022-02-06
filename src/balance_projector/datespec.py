@@ -1,3 +1,4 @@
+from typing import Union
 import attr
 import dateutil.parser as dp
 import dateutil.rrule as dr
@@ -23,12 +24,12 @@ weekday_map = {
 
 @attr.define(kw_only=True)
 class DateSpec:
-    start_date: str
-    end_date: str
-    frequency: str
-    interval: int
-    day_of_week: str = None
-    day_of_month: int = None
+    start_date: str = attr.ib()
+    end_date: str = attr.ib()
+    frequency: str = attr.ib()
+    interval: int = attr.ib()
+    day_of_week: Union[str, None] = attr.ib()
+    day_of_month: Union[int, None] = attr.ib()
 
     @classmethod
     def from_spec(cls, spec):
