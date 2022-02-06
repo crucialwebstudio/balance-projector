@@ -1,6 +1,6 @@
 accounts:
   checking: # account_id: Unique ID to indentify the account.
-    type: checking
+    type: checking   # str: one of: checking | savings | cc | invest
     name: Checking   # str: Name of the account.
     balance: 2043.15 # float: Current balance. May be positive or negative.
     scheduled_transactions:
@@ -57,8 +57,8 @@ accounts:
     type: cc
     name: Credit Card
     balance: -649.32
-    stmt_balance: -300.15
-    stmt_close_dom: 4
+    stmt_balance: -300.15 # float: current statement balance (for cc type only)
+    stmt_close_dom: 4     # int: Statement closing day of month (for cc type only)
     scheduled_transactions: null
   taxable_brokerage:
     type: invest
