@@ -1,10 +1,82 @@
 import datetime
 import unittest
-from parameterized import parameterized
-from test.helpers import FixtureHelper, DebugHelper
-import pandas as pd
+
 import numpy as np
-from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector
+import pandas as pd
+from parameterized import parameterized
+
+from balance_projector.account import Account
+from balance_projector.datespec import DateSpec
+from balance_projector.exceptions import OutOfBoundsException
+from balance_projector.projector import Projector
+from balance_projector.transaction import Transaction
+from test.helpers import FixtureHelper, DebugHelper
+
+
+class TestAccount(unittest.TestCase):
+    def test_balance_date_out_of_range(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        # before start_date of the account
+        self.assertRaises(OutOfBoundsException, account.get_balance, '2021-12-31')
+
+    def test_no_transactions_returns_current_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        self.assertEqual(account.get_balance('2022-01-14'), 1000)
+
+    def test_no_transactions_lt_balance_date_returns_current_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 1000)
+
+    def test_get_balance_for_date(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 1000)
+        self.assertEqual(account.get_balance('2022-01-14'), 750)
+        self.assertEqual(account.get_balance('2022-01-15'), 750)
+        self.assertEqual(account.get_balance('2022-01-16'), 750)
+        self.assertEqual(account.get_balance('2022-01-28'), 500)
+        self.assertEqual(account.get_balance('2025-01-01'), 500)
+
+    def test_add_previous_transaction_updates_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=7500)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 7500)
+        self.assertEqual(account.get_balance('2022-01-14'), 7250)
+        self.assertEqual(account.get_balance('2022-01-15'), 7250)
+        self.assertEqual(account.get_balance('2022-01-16'), 7250)
+        self.assertEqual(account.get_balance('2022-01-28'), 7000)
+        self.assertEqual(account.get_balance('2025-01-01'), 7000)
+        account.add_transaction(
+            Transaction(transaction_id='mountain_bike', account_id='checking',
+                        date=datetime.datetime(2022, 1, 18, 0, 0), amount=-1000, name='Mountain Bike', type='transfer'))
+        self.assertEqual(account.get_balance('2022-01-05'), 7500)
+        self.assertEqual(account.get_balance('2022-01-14'), 7250)
+        self.assertEqual(account.get_balance('2022-01-15'), 7250)
+        self.assertEqual(account.get_balance('2022-01-16'), 7250)
+        self.assertEqual(account.get_balance('2022-01-28'), 6000)
+        self.assertEqual(account.get_balance('2025-01-01'), 6000)
 
 
 class TestDates(unittest.TestCase):
@@ -203,143 +275,14 @@ class TestProjector(unittest.TestCase):
     def tearDown(self):
         pass
 
-    @parameterized.expand([
-        (
-                "bi_weekly_transfer",
-                {
-                    'account_id': 'checking',
-                    'name':       'Savings',
-                    'amount':     250.00,
-                    'type':       'transfer',
-                    'date_spec':  {
-                        'start_date':   '2022-01-01',
-                        'end_date':     '2022-06-30',
-                        'frequency':    'weekly',
-                        'interval':     2,
-                        'day_of_week':  'fri',
-                        'day_of_month': None
-                    },
-                    'transfer':   {
-                        'direction':  'to',
-                        'account_id': 'savings'
-                    }
-                },
-                [
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 1, 14, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 1, 28, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 2, 11, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 2, 11, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 2, 25, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 2, 25, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 3, 11, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 3, 11, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 3, 25, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 3, 25, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 4, 8, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 4, 8, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 4, 22, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 4, 22, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 5, 6, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 5, 6, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 5, 20, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 5, 20, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 6, 3, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 6, 3, 0, 0), amount=250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
-                                date=datetime.datetime(2022, 6, 17, 0, 0), amount=-250.0, name='Savings'),
-                    Transaction(transaction_id='bi_weekly_transfer', account_id='savings',
-                                date=datetime.datetime(2022, 6, 17, 0, 0), amount=250.0, name='Savings')
-                ]
-        ),
-        (
-                "one_time_credit",
-                {
-                    'account_id': 'checking',
-                    'name':       'Craigslist Sale',
-                    'amount':     500.00,
-                    'type':       'income',
-                    'date_spec':  {
-                        'start_date':   '2022-05-15',
-                        'end_date':     '2022-05-15',
-                        'frequency':    'daily',
-                        'interval':     1,
-                        'day_of_week':  None,
-                        'day_of_month': None
-                    },
-                    'transfer':   None
-                },
-                [
-                    Transaction(transaction_id='one_time_credit', account_id='checking',
-                                date=datetime.datetime(2022, 5, 15, 0, 0), amount=500.00, name='Craigslist Sale')
-                ]
-        ),
-        (
-                "one_time_debit",
-                {
-                    'account_id': 'checking',
-                    'name':       'Mountain Bike',
-                    'amount':     1299.99,
-                    'type':       'expense',
-                    'date_spec':  {
-                        'start_date':   '2022-05-15',
-                        'end_date':     '2022-05-15',
-                        'frequency':    'daily',
-                        'interval':     1,
-                        'day_of_week':  None,
-                        'day_of_month': None
-                    },
-                    'transfer':   None
-                },
-                [
-                    Transaction(transaction_id='one_time_debit', account_id='checking',
-                                date=datetime.datetime(2022, 5, 15, 0, 0), amount=-1299.99, name='Mountain Bike')
-                ]
-        )
-    ])
-    def test_create_transactions(self, test_name, param, expected):
-        transfer = None if param['transfer'] is None else Transfer(direction=param['transfer']['direction'],
-                                                                   account_id=param['transfer']['account_id'])
-        tr = ScheduledTransaction(transaction_id=test_name, account_id=param['account_id'], name=param['name'],
-                                  amount=param['amount'],
-                                  type=param['type'], date_spec=DateSpec.from_spec(param['date_spec']),
-                                  transfer=transfer)
-        actual = tr.generate_transactions('2022-01-01', '2022-12-31')
-        self.assertEqual(actual, expected)
-
     def test_get_transactions_data_frame(self):
         spec = FixtureHelper.get_spec_fixture()
         projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
-        checking_df = projector.get_account('checking').transactions_df
-        taxable_df = projector.get_account('taxable_brokerage').transactions_df
-        # DebugHelper.pprint(checking_df)
+        checking_df = projector.get_account('checking').get_transactions_df()
+        taxable_df = projector.get_account('taxable_brokerage').get_transactions_df()
+        # DebugHelper.pprint(checking_df.to_string())
 
-        """
-        Spot-check some rows
-        """
+        # Spot-check some rows
         mask = ((checking_df['date'] > '2022-02-01') & (checking_df['date'] < '2022-02-28'))
         t = checking_df[mask]
         # DebugHelper.pprint(t)
