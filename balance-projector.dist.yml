@@ -18,6 +18,18 @@ accounts:
         transfer: null # dict|null: Transfer spec. Required when type: 'transfer', null otherwise.
         #  direction: to       # str: to|from
         #  account_id: savings # str: account_id for the transfer
+      rent:
+        name: Rent
+        amount: 1500
+        type: expense
+        date_spec:
+          start_date: '2022-01-28'
+          end_date: null
+          frequency: monthly
+          interval: 1
+          day_of_week: null
+          day_of_month: 1
+        transfer: null
       cc_pmt:
         name: Credit Card Pmt
         amount:
@@ -34,9 +46,9 @@ accounts:
         transfer:
           direction: to
           account_id: credit_card
-      freedom_fund:
-        name: Freedom Fund
-        amount: 100.00
+      savings:
+        name: Savings
+        amount: 500.00
         type: transfer
         date_spec:
           start_date: '2021-11-05'
@@ -47,24 +59,69 @@ accounts:
           day_of_month: null
         transfer:
           direction: to
-          account_id: taxable_brokerage
+          account_id: savings
+      retirement:
+        name: 401k
+        amount: 500.00
+        type: transfer
+        date_spec:
+          start_date: '2021-11-05'
+          end_date: null
+          frequency: weekly
+          interval: 2
+          day_of_week: fri
+          day_of_month: null
+        transfer:
+          direction: to
+          account_id: 401k
   savings:
     type: savings
     name: Savings
-    balance: 1000.00
+    balance: 2000.00
     scheduled_transactions: null
   credit_card:
     type: cc
     name: Credit Card
-    balance: -649.32
+    balance: -1650.32
     stmt_balance: -300.15 # float: current statement balance (for cc type only)
     stmt_close_dom: 4     # int: Statement closing day of month (for cc type only)
-    scheduled_transactions: null
-  taxable_brokerage:
-    type: invest
-    name: Brokerage Account
-    balance: 32582.83
-    scheduled_transactions: null
+    scheduled_transactions:
+      groc:
+        name: Groceries
+        amount: 750
+        type: expense
+        date_spec:
+          start_date: '2021-12-01'
+          end_date: null
+          frequency: monthly
+          interval: 1
+          day_of_week: null
+          day_of_month: 15
+        transfer: null
+      gas:
+        name: Gas
+        amount: 150
+        type: expense
+        date_spec:
+          start_date: '2021-12-01'
+          end_date: null
+          frequency: monthly
+          interval: 1
+          day_of_week: null
+          day_of_month: 15
+        transfer: null
+      slush:
+        name: Slush Fund
+        amount: 500
+        type: expense
+        date_spec:
+          start_date: '2021-12-01'
+          end_date: null
+          frequency: monthly
+          interval: 1
+          day_of_week: null
+          day_of_month: 15
+        transfer: null
   401k:
     type: invest
     name: 401k
@@ -83,16 +140,12 @@ accounts:
           day_of_month: 15
         transfer: null
 chart_spec:
-  - name: Primary Accounts
+  - name: Charts
     type: line
     account_ids:
       - checking
       - savings
       - credit_card
-  - name: Investment Accounts
-    type: line
-    account_ids:
-      - taxable_brokerage
       - 401k
   - name: Raw Data
     type: datatable
@@ -100,5 +153,4 @@ chart_spec:
       - checking
       - savings
       - credit_card
-      - taxable_brokerage
       - 401k
