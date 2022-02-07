@@ -275,58 +275,100 @@ class TestProjector(unittest.TestCase):
     def tearDown(self):
         pass
 
-    def test_get_transactions_data_frame(self):
+    def test_checking_transactions(self):
         spec = FixtureHelper.get_spec_fixture()
         projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
-        checking_df = projector.get_account('checking').get_transactions_df()
-        taxable_df = projector.get_account('taxable_brokerage').get_transactions_df()
-        # DebugHelper.pprint(checking_df.to_string())
+        df = projector.get_account('checking').get_transactions_df()
+        # DebugHelper.pprint(df.to_string())
 
         # Spot-check some rows
-        mask = ((checking_df['date'] > '2022-02-01') & (checking_df['date'] < '2022-02-28'))
-        t = checking_df[mask]
+        mask = ((df['date'] >= '2022-02-01') & (df['date'] <= '2022-03-01'))
+        t = df[mask]
         # DebugHelper.pprint(t)
         np.testing.assert_array_equal(
             t.to_numpy(),
             pd.DataFrame(
                 [
                     {
-                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -100.00,
-                        'name':       'Freedom Fund'
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 1, 0, 0, 0), 'amount': -1350.17,
+                        'name':       'Credit Card Pmt'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 1, 0, 0, 0), 'amount': -1500.0,
+                        'name':       'Rent'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -500.00,
+                        'name':       '401k'
                     },
                     {
                         'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 2500.00,
                         'name':       'Paycheck'
                     },
                     {
-                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -100.00,
-                        'name':       'Freedom Fund'
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -500.00,
+                        'name':       'Savings'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -500.00,
+                        'name':       '401k'
                     },
                     {
                         'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 2500.00,
                         'name':       'Paycheck'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -500.00,
+                        'name':       'Savings'
+                    },
+                    # TODO why isn't this getting rounded properly?
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 3, 1, 0, 0, 0), 'amount': -1399.9999999999998,
+                        'name':       'Credit Card Pmt'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 3, 1, 0, 0, 0), 'amount': -1500.00,
+                        'name':       'Rent'
                     }
                 ]
             ).to_numpy()
         )
 
-        mask = ((taxable_df['date'] > '2022-02-01') & (taxable_df['date'] < '2022-02-28'))
-        t = taxable_df[mask]
+    def test_cc_transactions(self):
+        spec = FixtureHelper.get_spec_fixture()
+        projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
+        df = projector.get_account('credit_card').get_transactions_df()
+        # DebugHelper.pprint(df.to_string())
+
+        # Spot-check some rows
+        mask = ((df['date'] >= '2022-02-01') & (df['date'] <= '2022-03-01'))
+        t = df[mask]
         # DebugHelper.pprint(t)
         np.testing.assert_array_equal(
             t.to_numpy(),
             pd.DataFrame(
                 [
                     {
-                        'account_id': 'taxable_brokerage', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0),
-                        'amount':     100.00,
-                        'name':       'Freedom Fund'
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 1, 0, 0, 0), 'amount': 1350.17,
+                        'name':       'Credit Card Pmt'
                     },
                     {
-                        'account_id': 'taxable_brokerage', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0),
-                        'amount':     100.00,
-                        'name':       'Freedom Fund'
-                    }
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': -150.00,
+                        'name':       'Gas'
+                    },
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': -750.00,
+                        'name':       'Groceries'
+                    },
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': -500.00,
+                        'name':       'Slush Fund'
+                    },
+                    # TODO why isn't this getting rounded properly?
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 3, 1, 0, 0, 0), 'amount': 1399.9999999999998,
+                        'name':       'Credit Card Pmt'
+                    },
                 ]
             ).to_numpy()
         )

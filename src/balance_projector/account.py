@@ -48,6 +48,8 @@ class Account:
         if self.transactions_df is None:
             data = list(map(attr.asdict, self.transactions))
             df = pd.DataFrame(data, columns=['account_id', 'date', 'amount', 'name'])
+            # round amount
+            df['amount'].round(decimals=2)
             df = df.sort_values(by=['date', 'name'],
                                 ascending=True,
                                 ignore_index=True)
@@ -92,7 +94,9 @@ class Account:
         """
         trans_df = self.get_running_balance()
         # create new column with "transaction: amount" string
-        trans_df['amt_desc'] = trans_df['amount'].astype(str).str.cat(trans_df['name'], sep=': ')
+        trans_df['amt_desc'] = trans_df['amount']
+        trans_df['amt_desc'] = trans_df['amt_desc'].apply(lambda x: f'${x:.2f}')
+        trans_df['amt_desc'] = trans_df['amt_desc'].str.cat(trans_df['name'], sep=': ')
         # group by date
         df_date_group = trans_df.groupby('date').agg({
             'amt_desc': '<br>'.join,
@@ -160,8 +164,6 @@ class Accounts:
         # exchanged, and subsequent transactions are added to the account.
         dynamic = sorted(st.dynamic, key=lambda d: d.date)
         for dt in dynamic:
-            print(dt)
             transactions = dt.exchange(self)
-            print(transactions)
             self.add_transactions(transactions)
 
