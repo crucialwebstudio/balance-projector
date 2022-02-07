@@ -1,19 +1,85 @@
-import unittest
-from parameterized import parameterized
-from test.helpers import FixtureHelper, DebugHelper
 import datetime
-from balance_projector.projector import ScheduledTransaction, DateSpec, Transfer, Transaction, Projector, \
-    RunningBalance
+import unittest
+
+import numpy as np
+import pandas as pd
+from parameterized import parameterized
+
+from balance_projector.account import Account
+from balance_projector.datespec import DateSpec
+from balance_projector.exceptions import OutOfBoundsException
+from balance_projector.projector import Projector
+from balance_projector.transaction import Transaction
+from test.helpers import FixtureHelper, DebugHelper
 
 
-class TestProjector(unittest.TestCase):
+class TestAccount(unittest.TestCase):
+    def test_balance_date_out_of_range(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        # before start_date of the account
+        self.assertRaises(OutOfBoundsException, account.get_balance, '2021-12-31')
 
-    def setUp(self):
-        pass
+    def test_no_transactions_returns_current_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        self.assertEqual(account.get_balance('2022-01-14'), 1000)
 
-    def tearDown(self):
-        pass
+    def test_no_transactions_lt_balance_date_returns_current_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 1000)
 
+    def test_get_balance_for_date(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=1000)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 1000)
+        self.assertEqual(account.get_balance('2022-01-14'), 750)
+        self.assertEqual(account.get_balance('2022-01-15'), 750)
+        self.assertEqual(account.get_balance('2022-01-16'), 750)
+        self.assertEqual(account.get_balance('2022-01-28'), 500)
+        self.assertEqual(account.get_balance('2025-01-01'), 500)
+
+    def test_add_previous_transaction_updates_balance(self):
+        account = Account(account_id='checking', name='Checking', start_date='2022-01-01', balance=7500)
+        account.add_transactions([
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0, name='Savings', type='transfer'),
+            Transaction(transaction_id='bi_weekly_transfer', account_id='checking',
+                        date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0, name='Savings', type='transfer')
+        ])
+        self.assertEqual(account.get_balance('2022-01-05'), 7500)
+        self.assertEqual(account.get_balance('2022-01-14'), 7250)
+        self.assertEqual(account.get_balance('2022-01-15'), 7250)
+        self.assertEqual(account.get_balance('2022-01-16'), 7250)
+        self.assertEqual(account.get_balance('2022-01-28'), 7000)
+        self.assertEqual(account.get_balance('2025-01-01'), 7000)
+        account.add_transaction(
+            Transaction(transaction_id='mountain_bike', account_id='checking',
+                        date=datetime.datetime(2022, 1, 18, 0, 0), amount=-1000, name='Mountain Bike', type='transfer'))
+        self.assertEqual(account.get_balance('2022-01-05'), 7500)
+        self.assertEqual(account.get_balance('2022-01-14'), 7250)
+        self.assertEqual(account.get_balance('2022-01-15'), 7250)
+        self.assertEqual(account.get_balance('2022-01-16'), 7250)
+        self.assertEqual(account.get_balance('2022-01-28'), 6000)
+        self.assertEqual(account.get_balance('2025-01-01'), 6000)
+
+
+class TestDates(unittest.TestCase):
     @parameterized.expand([
         (
                 # Every Month on the 31st
@@ -25,6 +91,10 @@ class TestProjector(unittest.TestCase):
                     'interval':     1,
                     'day_of_week':  None,
                     'day_of_month': 31
+                },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2022-11-05'
                 },
                 [
                     datetime.datetime(2021, 11, 30, 0, 0, 0),
@@ -52,6 +122,10 @@ class TestProjector(unittest.TestCase):
                     'day_of_week':  None,
                     'day_of_month': 30
                 },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2022-11-05'
+                },
                 [
                     datetime.datetime(2021, 11, 30, 0, 0, 0),
                     datetime.datetime(2021, 12, 31, 0, 0, 0),
@@ -77,6 +151,10 @@ class TestProjector(unittest.TestCase):
                     'interval':     2,
                     'day_of_week':  'fri',
                     'day_of_month': None
+                },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2022-11-05'
                 },
                 [
                     datetime.datetime(2021, 11, 5, 0, 0),
@@ -119,166 +197,181 @@ class TestProjector(unittest.TestCase):
                     'day_of_week':  None,
                     'day_of_month': None
                 },
+                {
+                    'start_date': '2021-11-05',
+                    'end_date':   '2021-11-05'
+                },
                 [
                     datetime.datetime(2021, 11, 5, 0, 0)
                 ]
         )
     ])
-    def test_create_dates(self, name, param, expected):
-        datespec = DateSpec.from_spec(param)
-        actual = datespec.generate_dates()
+    def test_create_dates_fixed(self, name, spec, date_filter, expected):
+        datespec = DateSpec.from_spec(spec)
+        actual = datespec.generate_dates(start_date=date_filter['start_date'], end_date=date_filter['end_date'])
         self.assertEqual(actual, expected)
 
     @parameterized.expand([
         (
-                "bi_weekly_transfer",
+                # Every Month on the 31st
+                "monthly_31st_fixed",
                 {
-                    'account_id': 1,
-                    'name':       'Roth IRA',
-                    'amount':     250.00,
-                    'type':       'transfer',
-                    'date_spec':  {
-                        'start_date':   '2022-01-01',
-                        'end_date':     '2022-06-30',
-                        'frequency':    'weekly',
-                        'interval':     2,
-                        'day_of_week':  'fri',
-                        'day_of_month': None
-                    },
-                    'transfer':   {
-                        'direction':  'to',
-                        'account_id': 2
-                    }
+                    'start_date':   '2021-11-05',
+                    'end_date':     '2022-11-05',
+                    'frequency':    'monthly',
+                    'interval':     1,
+                    'day_of_week':  None,
+                    'day_of_month': 31
+                },
+                {
+                    'start_date': '2022-01-01',
+                    'end_date':   '2022-06-30'
                 },
                 [
-                    Transaction(account_id=1, date=datetime.datetime(2022, 1, 14, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 1, 14, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 1, 28, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 1, 28, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 2, 11, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 2, 11, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 2, 25, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 2, 25, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 3, 11, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 3, 11, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 3, 25, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 3, 25, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 4, 8, 0, 0), amount=-250.0, name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 4, 8, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 4, 22, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 4, 22, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 6, 0, 0), amount=-250.0, name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 5, 6, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 20, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 5, 20, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 6, 3, 0, 0), amount=-250.0, name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 6, 3, 0, 0), amount=250.0, name='Roth IRA'),
-                    Transaction(account_id=1, date=datetime.datetime(2022, 6, 17, 0, 0), amount=-250.0,
-                                name='Roth IRA'),
-                    Transaction(account_id=2, date=datetime.datetime(2022, 6, 17, 0, 0), amount=250.0, name='Roth IRA')
+                    datetime.datetime(2022, 1, 31, 0, 0, 0),
+                    datetime.datetime(2022, 2, 28, 0, 0, 0),
+                    datetime.datetime(2022, 3, 31, 0, 0, 0),
+                    datetime.datetime(2022, 4, 30, 0, 0, 0),
+                    datetime.datetime(2022, 5, 31, 0, 0, 0),
+                    datetime.datetime(2022, 6, 30, 0, 0, 0)
                 ]
         ),
         (
-                "one_time_credit",
+                # Every Month on the 30th
+                "monthly_30th_infinite",
                 {
-                    'account_id': 1,
-                    'name':       'Craigslist Sale',
-                    'amount':     500.00,
-                    'type':       'income',
-                    'date_spec':  {
-                        'start_date':   '2022-05-15',
-                        'end_date':     '2022-05-15',
-                        'frequency':    'daily',
-                        'interval':     1,
-                        'day_of_week':  None,
-                        'day_of_month': None
-                    },
-                    'transfer':   None
+                    'start_date':   '2021-11-05',
+                    'end_date':     None,
+                    'frequency':    'monthly',
+                    'interval':     1,
+                    'day_of_week':  None,
+                    'day_of_month': 30
+                },
+                {
+                    'start_date': '2022-01-01',
+                    'end_date':   '2022-06-30'
                 },
                 [
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 15, 0, 0), amount=500.00,
-                                name='Craigslist Sale')
-                ]
-        ),
-        (
-                "one_time_debit",
-                {
-                    'account_id': 1,
-                    'name':       'Mountain Bike',
-                    'amount':     1299.99,
-                    'type':       'expense',
-                    'date_spec':  {
-                        'start_date':   '2022-05-15',
-                        'end_date':     '2022-05-15',
-                        'frequency':    'daily',
-                        'interval':     1,
-                        'day_of_week':  None,
-                        'day_of_month': None
-                    },
-                    'transfer':   None
-                },
-                [
-                    Transaction(account_id=1, date=datetime.datetime(2022, 5, 15, 0, 0), amount=-1299.99,
-                                name='Mountain Bike')
+                    datetime.datetime(2022, 1, 31, 0, 0, 0),
+                    datetime.datetime(2022, 2, 28, 0, 0, 0),
+                    datetime.datetime(2022, 3, 31, 0, 0, 0),
+                    datetime.datetime(2022, 4, 30, 0, 0, 0),
+                    datetime.datetime(2022, 5, 31, 0, 0, 0),
+                    datetime.datetime(2022, 6, 30, 0, 0, 0)
                 ]
         )
     ])
-    def test_create_transactions(self, name, param, expected):
-        transfer = None if param['transfer'] is None else Transfer(direction=param['transfer']['direction'],
-                                                                   account_id=param['transfer']['account_id'])
-        tr = ScheduledTransaction(account_id=param['account_id'], name=param['name'], amount=param['amount'],
-                                  type=param['type'], date_spec=DateSpec.from_spec(param['date_spec']),
-                                  transfer=transfer)
-        actual = tr.generate_transactions()
+    def test_create_dates_filtered(self, name, spec, date_filter, expected):
+        datespec = DateSpec.from_spec(spec)
+        actual = datespec.generate_dates(start_date=date_filter['start_date'], end_date=date_filter['end_date'])
         self.assertEqual(actual, expected)
 
-    def test_projector(self):
-        spec = FixtureHelper.get_yaml('balance_projector.yml')
-        projector = Projector.from_spec(spec)
-        actual = projector.project(1, 2000.00, '2021-11-01', '2021-12-31')
-        # DebugHelper.pprint(actual)
 
-        expected = [
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 5, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=4500.0),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 5, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=4277.78),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 19, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=6777.78),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 11, 19, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=6555.5599999999995),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 3, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=9055.56),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 3, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=8833.34),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 17, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=11333.34),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 17, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=11111.12),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 31, 0, 0), amount=2500.0,
-                                        name='Paycheck'), balance=13611.12),
-            RunningBalance(
-                transaction=Transaction(account_id=1, date=datetime.datetime(2021, 12, 31, 0, 0), amount=-222.22,
-                                        name='Roth IRA'), balance=13388.900000000001)
-        ]
-        self.assertEqual(actual, expected)
+class TestProjector(unittest.TestCase):
+
+    def setUp(self):
+        pass
+
+    def tearDown(self):
+        pass
+
+    def test_checking_transactions(self):
+        spec = FixtureHelper.get_spec_fixture()
+        projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
+        df = projector.get_account('checking').get_transactions_df()
+        # DebugHelper.pprint(df.to_string())
+
+        # Spot-check some rows
+        mask = ((df['date'] >= '2022-02-01') & (df['date'] <= '2022-03-01'))
+        t = df[mask]
+        # DebugHelper.pprint(t)
+        np.testing.assert_array_equal(
+            t.to_numpy(),
+            pd.DataFrame(
+                [
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 1, 0, 0, 0), 'amount': -1350.17,
+                        'name':       'Credit Card Pmt'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 1, 0, 0, 0), 'amount': -1500.0,
+                        'name':       'Rent'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -500.00,
+                        'name':       '401k'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': 2500.00,
+                        'name':       'Paycheck'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 11, 0, 0, 0), 'amount': -500.00,
+                        'name':       'Savings'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -500.00,
+                        'name':       '401k'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': 2500.00,
+                        'name':       'Paycheck'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 2, 25, 0, 0, 0), 'amount': -500.00,
+                        'name':       'Savings'
+                    },
+                    # TODO why isn't this getting rounded properly?
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 3, 1, 0, 0, 0), 'amount': -1399.9999999999998,
+                        'name':       'Credit Card Pmt'
+                    },
+                    {
+                        'account_id': 'checking', 'date': datetime.datetime(2022, 3, 1, 0, 0, 0), 'amount': -1500.00,
+                        'name':       'Rent'
+                    }
+                ]
+            ).to_numpy()
+        )
+
+    def test_cc_transactions(self):
+        spec = FixtureHelper.get_spec_fixture()
+        projector = Projector.from_spec(spec, '2022-01-01', '2022-12-31')
+        df = projector.get_account('credit_card').get_transactions_df()
+        # DebugHelper.pprint(df.to_string())
+
+        # Spot-check some rows
+        mask = ((df['date'] >= '2022-02-01') & (df['date'] <= '2022-03-01'))
+        t = df[mask]
+        # DebugHelper.pprint(t)
+        np.testing.assert_array_equal(
+            t.to_numpy(),
+            pd.DataFrame(
+                [
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 1, 0, 0, 0), 'amount': 1350.17,
+                        'name':       'Credit Card Pmt'
+                    },
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': -150.00,
+                        'name':       'Gas'
+                    },
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': -750.00,
+                        'name':       'Groceries'
+                    },
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 2, 15, 0, 0, 0), 'amount': -500.00,
+                        'name':       'Slush Fund'
+                    },
+                    # TODO why isn't this getting rounded properly?
+                    {
+                        'account_id': 'credit_card', 'date': datetime.datetime(2022, 3, 1, 0, 0, 0), 'amount': 1399.9999999999998,
+                        'name':       'Credit Card Pmt'
+                    },
+                ]
+            ).to_numpy()
+        )
 
 
 if __name__ == "__main__":
