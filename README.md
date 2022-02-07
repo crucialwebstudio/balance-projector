@@ -2,7 +2,7 @@
 
 Shows your future account balances according to a [spec file](balance-projector.dist.yml).
 
-<img src="https://github.com/crucialwebstudio/balance-projector/blob/main/screenshot.png?raw=true" alt="Balance Projector" width="400"/>
+<img src="https://github.com/crucialwebstudio/balance-projector/blob/main/screenshot.png?raw=true" alt="Balance Projector" style="max-width: 100%"/>
 
 ## Getting Started
 
